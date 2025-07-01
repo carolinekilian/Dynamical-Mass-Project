@@ -295,7 +295,7 @@ def lnprob(p0):
 # incl, pa (unused), R_in, stellar mass : https://ui.adsabs.harvard.edu/abs/2022MNRAS.510.1148S/abstract
 # vsys: https://ui.adsabs.harvard.edu/abs/2019MNRAS.489.3670K/abstract
 # param7 180 +/- 10 (pa) just default to this PA b/c there's no specified convention on how its measured so just probe all parameter space
-def MCMC(nsteps=4000, ndim=12, nwalkers=24, param_1=0.2, param_2=79, param_3 = 50.0, param_4=100, param_5= -0.5, param_6=60, param_7=180, param_8=-3, param_9=1, param_10=0, param_11=0, param_12=6.50, sigma_1=0.3, sigma_2=3, sigma_3=15.0, sigma_4=30, sigma_5=1, sigma_6=20, sigma_7=10, sigma_8=0.50, sigma_9=0.5, sigma_10=0.2, sigma_11=0.2, sigma_12=0.1, restart=False):
+def MCMC(nsteps=4000, ndim=11, nwalkers=22, param_1=0.2, param_2=79, param_3 = 50.0, param_4=100, param_5=60, param_6=180, param_7=-3, param_8=1, param_9=0, param_10=0, param_11=6.50, sigma_1=0.3, sigma_2=3, sigma_3=15.0, sigma_4=3, sigma_5=20, sigma_6=10, sigma_7=0.50, sigma_8=0.5, sigma_9=0.2, sigma_10=0.2, sigma_11=0.1, restart=False):
 
     '''Perform MCMC Affine invariants
     :param nsteps:       number of iterations
@@ -305,14 +305,14 @@ def MCMC(nsteps=4000, ndim=12, nwalkers=24, param_1=0.2, param_2=79, param_3 = 5
     :param_2:     inclination
     :param_3:     Inner radius
     :param_4:     Critical radius
-    :param_5:     Temperature radial power law index
-    :param_6:     Atmospheric temperature
-    :param_7:     position angle
-    :param_8:     log of disk mass
-    :param_9:     pp
-    :param_10:    xoffset
-    :param_11:    yoffset
-    :param_12     vsys 
+    :param_5:     Atmospheric temperature
+    :param_6:     position angle
+    :param_7:     log of disk mass
+    :param_8:     pp
+    :param_9:    xoffset
+    :param_10:    yoffset
+    :param_11:     vsys 
+
 
     for any additional parameters to later add
     :param_9:          
@@ -322,7 +322,7 @@ def MCMC(nsteps=4000, ndim=12, nwalkers=24, param_1=0.2, param_2=79, param_3 = 5
 
     if restart == False:
 
-        p0 = np.random.normal(loc=(param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8, param_9, param_10, param_11, param_12), size=(nwalkers, ndim), scale=(sigma_1, sigma_2, sigma_3, sigma_4, sigma_5, sigma_6, sigma_7, sigma_8, sigma_9, sigma_10, sigma_11, sigma_12))
+        p0 = np.random.normal(loc=(param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8, param_9, param_10, param_11), size=(nwalkers, ndim), scale=(sigma_1, sigma_2, sigma_3, sigma_4, sigma_5, sigma_6, sigma_7, sigma_8, sigma_9, sigma_10, sigma_11))
 
     else:
         a = pd.read_csv('jun9_2023_MCMC.csv')
@@ -367,7 +367,7 @@ def MCMC(nsteps=4000, ndim=12, nwalkers=24, param_1=0.2, param_2=79, param_3 = 5
         steps += new_step
         print(lnprobs)
         df = pd.DataFrame(steps)
-        df.columns = ["logmass_stell", "incl", "Rin", "Rc", "qq", "T_atm", "pa", "logmass", "pp", "xoffset", "yoffset", "vsys", "lnprobs"]
+        df.columns = ["logmass_stell", "incl", "Rin", "Rc", "T_atm", "pa", "logmass", "pp", "xoffset", "yoffset", "vsys", "lnprobs"]
         df.to_csv('jun23_2025_MCMC.csv', mode='w')
         sys.stdout.write('completed step {} out of {} \r'.format(i, nsteps) )
         sys.stdout.flush()
