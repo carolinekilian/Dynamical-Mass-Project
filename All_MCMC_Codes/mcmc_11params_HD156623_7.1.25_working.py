@@ -179,6 +179,23 @@ def lnprob(p0):
     print(p0)
     #new parameters
     logmass_stell, incl, Rc, pp, pa, logmass, vsys, xoff, yoff, Rin, T_atm = p0 
+
+
+    # Sample parallax and compute distance at each MCMC step
+    
+    parallax_mean = 0.0092307 #arcseconds (Gaia DR3)
+    parallax_std = 0.000028 #arcseconds (Gaia DR3)
+
+    parallax = np.random.normal(parallax_mean,parallax_std)
+    if parallax <= 0:
+        return -np.inf #physically impossible
+    
+    distance = 1.0 / parallax #convert to parsec
+
+    # Log sampled values to file
+    with open("parallax_log.txt", "a") as f:
+        f.write(f"parallax = {parallax:.6e} arcsec -> distance = {distance:.2f} pc\n")
+
     priors_logmass_stell = [-2, 2]
     priors_incl = [0, 90]
     priors_Rc = [0, 1000]
@@ -259,7 +276,7 @@ def lnprob(p0):
 
     #current editing point
 
-    total_model(x, nchans = val['nchans'] * 2 + 1, chanstep=val['chanstep'] / 2, imres=val['cell'], distance=val['distance'],freq0=val['freq'], vsys = vsys, obsv = val['obsv'], chanmin = val['chanmin'], xnpix=val['imsize'], PA=pa, modfile=model_name, flipme=flipme, hanning=hanning, Jnum = val['Jnum'], offs=[xoff,yoff])
+    total_model(x, nchans = val['nchans'] * 2 + 1, chanstep=val['chanstep'] / 2, imres=val['cell'], distance=distance,freq0=val['freq'], vsys = vsys, obsv = val['obsv'], chanmin = val['chanmin'], xnpix=val['imsize'], PA=pa, modfile=model_name, flipme=flipme, hanning=hanning, Jnum = val['Jnum'], offs=[xoff,yoff])
     c = []
 
     #make_model_vis(val["datafile"], model_name, isgas=True, freq0=val['freq'])
@@ -275,7 +292,7 @@ def lnprob(p0):
 	
     return np.sum(c) * -0.5
 
-def MCMC(nsteps=5000, ndim=11, nwalkers=22, param_1=0, param_2=45, param_3=100, param_4= -0.5, param_5=274, param_6=-4, param_7 = 4.00, param_8 = 0.0, param_9 = 0.0 ,param_10 = 10, param_11 = 35, sigma_1=0.67, sigma_2=15, sigma_3=30, sigma_4=1, sigma_5=20, sigma_6=0.67, sigma_7 = 0.1, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, sigma_11 = 5, restart=False):
+def MCMC(nsteps=5000, ndim=11, nwalkers=22, param_1=0.1948, param_2=29.6666, param_3=27.8699, param_4= -2.2304, param_5=278.47098, param_6=-3.8225, param_7 = 3.9586, param_8 = 0.05295, param_9 = -0.03047 ,param_10 = 6.03843, param_11 = 31.4686, sigma_1=0.61, sigma_2=15, sigma_3=30, sigma_4=1, sigma_5=20, sigma_6=0.67, sigma_7 = 0.1, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, sigma_11 = 5, restart=False):
 
     '''Perform MCMC Affine invariants
     :param nsteps:       number of iterations
@@ -342,7 +359,7 @@ def MCMC(nsteps=5000, ndim=11, nwalkers=22, param_1=0, param_2=45, param_3=100, 
         print(lnprobs)
         df = pd.DataFrame(steps)
         df.columns = ["logmass_stell", "incl", "Rc", "pp", "pa", "logmass", "vsys", "xoff", "yoff", "Rin", "T_atm", "lnprobs"]
-        df.to_csv('jun24_2025.csv', mode='w')
+        df.to_csv('july3_2025.csv', mode='w')
         sys.stdout.write('completed step {} out of {} \r'.format(i, nsteps) )
         sys.stdout.flush()
 	
