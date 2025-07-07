@@ -292,7 +292,7 @@ def lnprob(p0):
 	
     return np.sum(c) * -0.5
 
-def MCMC(nsteps=5000, ndim=11, nwalkers=22, param_1=0.1948, param_2=29.6666, param_3=27.8699, param_4= -2.2304, param_5=278.47098, param_6=-3.8225, param_7 = 3.9586, param_8 = 0.05295, param_9 = -0.03047 ,param_10 = 6.03843, param_11 = 31.4686, sigma_1=0.61, sigma_2=15, sigma_3=30, sigma_4=1, sigma_5=20, sigma_6=0.67, sigma_7 = 0.1, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, sigma_11 = 5, restart=False):
+def MCMC(nsteps=5000, ndim=11, nwalkers=22, param_1=0.1948, param_2=29.6666, param_3=27.8699, param_4= -2.2304, param_5=278.47098, param_6=-3.8225, param_7 = 3.9586, param_8 = 0.05295, param_9 = -0.03047 ,param_10 = 6.03843, param_11 = 31.4686, sigma_1=0.61, sigma_2=10, sigma_3=10, sigma_4=0.9, sigma_5=20, sigma_6=0.6, sigma_7 = 0.083, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 2, sigma_11 = 5, restart=False):
 
     '''Perform MCMC Affine invariants
     :param nsteps:       number of iterations
