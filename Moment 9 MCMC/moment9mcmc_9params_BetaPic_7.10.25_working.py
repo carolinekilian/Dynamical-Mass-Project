@@ -193,28 +193,26 @@ def chiSq(modelfile, velaxis, datamoment, rms_clip, unique_id):
     moments = bm.collapse_ninth(velax=velaxis2, data=masked_data, rms=rms)
     mom_data, mom_error = moments
     loc = np.where(np.max(masked_data, axis=0)==0)
-    mom_data[loc] = 10e10
-
+    mom_data[loc] = 0
+    '''
     # apply data based mask
     databasedmaskfits = fits.open('thresholdmaskmom1.fits')
     databasedmask = databasedmaskfits[0].data
     double_masked_data = mom_data * databasedmask
-    loc = np.where(np.isnan(databasedmask) & (mom_data < 10e9))
-    double_masked_data[loc] = 10e10
-    #moments = double_masked_data, mom_error
-    #bm.save_to_FITS(moments=moments, method='ninth', path='modelmom1_'+unique_id+'.fits')
+    loc2 = np.where(np.isnan(databasedmask) & (np.max(masked_data, axis=0) != 0))
+    double_masked_data[loc2] = 1.5
     databasedmaskfits.close()
 
     # load moment1 of model and prepare for computation
     double_masked_data[np.isnan(double_masked_data)] = 0
-
+    '''
     # load moment9 of data and prepare for computation
     datamom9fits = fits.open(datamoment)
     data_data = datamom9fits[0].data
     data_data[np.isnan(data_data)] = 0
     datamom9fits.close()
 
-    raw_chi = np.sum((data_data-double_masked_data) ** 2 / (mom_error **2 ))
+    raw_chi = np.sum((data_data-mom_data) ** 2 / (mom_error **2 ))
     # reduced_chi = raw_chi / (np.count_nonzero((data_mom9!=0) | (mod_mom9 != 0)) -6)
     
     return raw_chi
@@ -222,14 +220,26 @@ def chiSq(modelfile, velaxis, datamoment, rms_clip, unique_id):
 #define priors
 def lnprob(p0):
     
+    parallax_mean = 50.9307e-3
+    parallax_std = 0.1482e-3
+    parallax = np.random.normal(parallax_mean, parallax_std)
+    while parallax <= 0:
+        parallax = np.random.normal(parallax_mean, parallax_std)
+        print("parallax out of bounds")
+
+    distance = 1 / parallax
+
+    with open("parallax_log.txt", "a") as f:
+        f.write(f"parallax: {parallax:.6e} arcsecs; distance = {distance:.2f} pc \n")
+
     #new parameters
-    logmass_stell, Rc, pp, vsys, Rin, incl, xoff, yoff = p0 
+    logmass_stell, Rc, pp, vsys, Rin, incl, xoff, yoff, pa = p0 
     priors_logmass_stell = [0, 1]
     priors_incl = [70, 90]
     priors_Rc = [0, 150]
     priors_Rin = [0, 50]
-    priors_pp = [-5, 0] #???
-    # priors_pa = [0, 360]
+    priors_pp = [-5, 5] #???
+    priors_pa = [0, 360]
     priors_vsys = [-1,3]
     priors_xoff = [-1, 1]
     priors_yoff = [-2, 2]
@@ -275,7 +285,7 @@ def lnprob(p0):
     R_out = 5.0 * Rc
     T_atm = 75.
     T_mid = T_atm
-    pa = 32.0
+    #pa = 32.0
     qq = -0.5
     v_turb = 0.01
     X_co = 1e-4
@@ -305,7 +315,7 @@ def lnprob(p0):
 
     return chi * -0.5
 
-def MCMC(nsteps=2600, ndim=8, nwalkers=40, param_1=0.25, param_2=80, param_3=-2.5, param_4 = 1.0, param_5 = 10, param_6 = 86, param_7 = 0.1, param_8 = 0.9, sigma_1=0.05, sigma_2=10, sigma_3=0.5, sigma_4 = 0.3, sigma_5 = 2, sigma_6 = 1, sigma_7 = 0.1, sigma_8 = 0.1, restart=False):
+def MCMC(nsteps=3000, ndim=9, nwalkers=40, param_1=0.25, param_2=95, param_3=-3.5, param_4 = 1.5, param_5 = 9, param_6 = 89, param_7 = 0.0, param_8 = 0.1, param_9 = 32.0, sigma_1=0.02, sigma_2=5, sigma_3=0.2, sigma_4 = 0.2, sigma_5 = 2, sigma_6 = 0.2, sigma_7 = 0.03, sigma_8 = 0.03, sigma_9 = 0.1, restart=False):
  # fix x and y, fix logmass
     '''Perform MCMC Affine invariants
     :param nsteps:       number of iterations
@@ -326,7 +336,7 @@ def MCMC(nsteps=2600, ndim=8, nwalkers=40, param_1=0.25, param_2=80, param_3=-2.
 
     if restart == False:
 
-        p0 = np.random.normal(loc=(param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8), size=(nwalkers, ndim), scale=(sigma_1, sigma_2, sigma_3, sigma_4, sigma_5, sigma_6, sigma_7, sigma_8))
+        p0 = np.random.normal(loc=(param_1, param_2, param_3, param_4, param_5, param_6, param_7, param_8, param_9), size=(nwalkers, ndim), scale=(sigma_1, sigma_2, sigma_3, sigma_4, sigma_5, sigma_6, sigma_7, sigma_8, sigma_9))
 
     else:
         a = pd.read_csv('jun1_2023.csv')
@@ -366,8 +376,8 @@ def MCMC(nsteps=2600, ndim=8, nwalkers=40, param_1=0.25, param_2=80, param_3=-2.
         steps += new_step
         print(lnprobs)
         df = pd.DataFrame(steps)
-        df.columns = ["logmass_stell", "Rc", "pp", "vsys", "Rin", "incl", "xoff", "yoff", "lnprobs"]
-        df.to_csv('june19_2025.csv', mode='w')
+        df.columns = ["logmass_stell", "Rc", "pp", "vsys", "Rin", "incl", "xoff", "yoff", "pa", "lnprobs"]
+        df.to_csv('july11_2025.csv', mode='w')
         sys.stdout.write('completed step {} out of {} \r'.format(i, nsteps) )
         sys.stdout.flush()
 	
