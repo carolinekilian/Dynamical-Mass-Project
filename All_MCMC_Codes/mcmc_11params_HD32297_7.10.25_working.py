@@ -162,10 +162,10 @@ def chiSq(datafile, modfile, dxy, dRA, dDec, pbcor):
         
         vis = sampleImage(foo[i,:,:], dxy/206265.0, u, v, dRA=dRA, dDec=dDec) 
         
-        model_vis[:,0,0,0,i,0,0] = vis.real
-        model_vis[:,0,0,0,i,1,0] = vis.real
-        model_vis[:,0,0,0,i,0,1] = vis.imag
-        model_vis[:,0,0,0,i,1,1] = vis.imag
+        model_vis[:,0,0,0,i,0,0] = vis.real # vestige of dmr code, not necessary but not hurting anything
+        model_vis[:,0,0,0,i,1,0] = vis.real # vestige of dmr code, not necessary but not hurting anything
+        model_vis[:,0,0,0,i,0,1] = vis.imag # vestige of dmr code, not necessary but not hurting anything
+        model_vis[:,0,0,0,i,1,1] = vis.imag # vestige of dmr code, not necessary but not hurting anything
 
         chi += ((vis.real - data[:,0,0,0,i,0,0])**2 * data[:,0,0,0,i,0,2]).sum() + ((vis.imag - data[:,0,0,0,i,0,1])**2 * data[:,0,0,0,i,0,2]).sum() + ((vis.real - data[:,0,0,0,i,1,0])**2 * data[:,0,0,0,i,1,2]).sum() + ((vis.imag - data[:,0,0,0,i,1,1])**2 * data[:,0,0,0,i,1,2]).sum()
 
@@ -216,8 +216,7 @@ def lnprob(p0):
     priors_xoff = [-1.5,1.5]
     priors_yoff = [-1.5,1.5]
     priors_T_atm = [0,500]
-#    priors_qq = [-1,0] #commented out due to NaN error from attempting to run it, although error persisted after removal of qq parameter
-    # def MCMC(nsteps=3000, ndim=10, nwalkers=40, param_1=0.25, param_2=85, param_3=20, param_4= -0.47, param_5=295, param_6= -7, param_7 = 6.0, param_8 = 0.0, param_9 = 0.0 ,param_10 = 10, sigma_1=0.3, sigma_2=1.7, sigma_3=10, sigma_4=1, sigma_5=7, sigma_6=0.67, sigma_7 = 0.5, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, restart=False):
+#    priors_qq = [-1,0] #commented out due to NaN error from attempting to run it, not necessary to vary this parameter
     
     if logmass_stell < priors_logmass_stell[0] or logmass_stell > priors_logmass_stell[1]:
         print("stellar mass out of bounds")
@@ -284,7 +283,6 @@ def lnprob(p0):
     hanning = True
     z_max = R_out/6
     
-    #f.write(f"incl: {str(incl)}, Rc: {str(Rc)}, pp: {str(pp)}, pa: {str(pa)}, xoff: {str(xoff)}, yoff: {str(yoff)}, Mstar: {str(M_stell)}, Mdisk: {str(Mdisk)}, R_in: {str(R_in)}, Rout: {str(R_out)}, Tatm: {str(T_atm)}")
     x = Disk(McoG=Mdisk, pp=pp, Rin=R_in, Rout=R_out, Rc=Rc, incl=incl, Mstar=M_stell, Zq0=80, Tmid0=T_mid, Tatm0=T_atm, sigbound=[1e-3,float('inf')], zmax=z_max)
     unique_id = str(np.random.randint(1e10))
     model_name = 'model_' + unique_id
@@ -311,8 +309,6 @@ def lnprob(p0):
     return np.sum(c) * -0.5
 
 def MCMC(nsteps=4000, ndim=11, nwalkers=50, param_1=0.25, param_2=85, param_3=105.02, param_4= -0.37, param_5=46.6, param_6= -4, param_7 = 6.0, param_8 = 0.09, param_9 = 0.1 ,param_10 = 10, param_11=21.3, sigma_1=0.3, sigma_2=1.7, sigma_3=10, sigma_4=0.2, sigma_5=7, sigma_6=0.67, sigma_7 = 0.2, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, sigma_11=5, restart=True):
-#def MCMC(nsteps=4000, ndim=11, nwalkers=22, param_1=0.25, param_2=85, param_3=30, param_4= -0.47, param_5=295, param_6= -5, param_7 = 6.0, param_8 = 0.0, param_9 = 0.0 ,param_10 = 10, param_11=25, sigma_1=0.3, sigma_2=1.7, sigma_3=5, sigma_4=1, sigma_5=7, sigma_6=0.67, sigma_7 = 0.2, sigma_8 = 0.2, sigma_9 = 0.2, sigma_10 = 3, sigma_11=5, restart=False):
-### def MCMC where qq is param_12 ###
 
     # logmass_stell, incl, Rc, pp, pa, logmass, vsys, xoff, yoff, Rin, T_atm
     #logmass_stell, incl, Rc, pp, pa, logmass, vsys, xoff, yoff, Rin, T_atm = p0 
@@ -331,10 +327,9 @@ def MCMC(nsteps=4000, ndim=11, nwalkers=50, param_1=0.25, param_2=85, param_3=10
     :param_9:     y-offset
     :param_10:    inner radius of the disk
     :param_11:    atmospheric temperature of the disk
-    :param_12:    temperature index of the disk
 
     for any additional parameters to later add
-    :param_7:          
+    :param_12:          
     '''
 
  #param
@@ -380,7 +375,6 @@ def MCMC(nsteps=4000, ndim=11, nwalkers=50, param_1=0.25, param_2=85, param_3=10
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool) 
 
     run = sampler.sample(p0, iterations=nsteps, store=True)
-    print("Print Statement Test, sampler, Meredith")
 
     steps=[]
 
