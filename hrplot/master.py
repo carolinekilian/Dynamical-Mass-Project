@@ -29,11 +29,11 @@ def run(interactive, commands={}):
             elif decision == 3:
                 fig, ax = plot_more = input("Would you like to plot a point? (yes or no): ").lower()
                 while plot_more == 'yes':
-                    color, available_colors = get_unique_color(available_colors, used_colors)
-                    fig, ax = plot_point(fig, ax, color)
+                    color, available_colors = PlottingTools.get_unique_color(available_colors, used_colors)
+                    fig, ax = PlottingTools.plot_point(fig, ax, color)
                     plot_more = input("Would you like to plot another point? (yes or no): ").lower()
                 title = input("Please input the title for the graph: ")
-                plot_format(fig, ax, title=title)
+                PlottingTools.plot_format(fig, ax, title=title)
                 return
     else:
         # plot all your ETs
@@ -43,20 +43,20 @@ def run(interactive, commands={}):
             fig, ax = plot_iso(fig, ax, interactive,command_iso)
         # plot all of your points
         for command_pp in commands['3']['pp']:
-            color, available_colors = get_unique_color(available_colors, used_colors)
-            fig, ax = plot_point(fig, ax, color, command_pp)
+            color, available_colors = PlottingTools.get_unique_color(available_colors, used_colors)
+            fig, ax = PlottingTools.plot_point(fig, ax, color, command_pp)
         
         # plot constant temperature lines 
         y_limits = ax.get_ylim()
         for command_temp in commands['4']['temperature_lines']:
-            fig, ax = plot_line_of_constant_temperature(fig, ax, y_limits, command_temp)
+            fig, ax = PlottingTools.plot_line_of_constant_temperature(fig, ax, y_limits, command_temp)
         # plot constant luminosity lines
         x_limits = ax.get_xlim()
         for command_lum in commands['4']['luminosity_lines']:
-            fig, ax = plot_line_of_constant_luminosity(fig, ax, x_limits, command_lum)
+            fig, ax = PlottingTools.plot_line_of_constant_luminosity(fig, ax, x_limits, command_lum)
         title=commands['title']
     
-        plot_format(fig, ax, title=title)
+        PlottingTools.plot_format(fig, ax, title=title)
         return
 
 if __name__ == "__main__":
