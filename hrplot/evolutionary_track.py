@@ -1,175 +1,287 @@
 import os
 import math
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from fastnumbers import isfloat, isint
 from astropy.io import ascii
-from scipy.interpolate import CubicSpline, Akima1DInterpolator
+from scipy.interpolate import Akima1DInterpolator
 import matplotlib as mpl
+import re 
 
-mpl.rcParams['text.usetex'] = True
-
-def get_valid_input(prompt, error_prompt, command, var_type):
-    """
-    Helper function to get valid input for x and y points.
-    """
-    if command:
-        value=command[var_type]
-        if not isint(value) and not isfloat(value):
-            raise ValueError(f"Invalid {var_type} in: {command}")
-    else:    
-        value = input(prompt)
-        while not isint(value) and not isfloat(value):
-            value = input(error_prompt)
-    return float(value)
-
-convert_to_log = lambda x: np.log10(x) if x > 0 else 0 
-# source: https://www.astro.princeton.edu/~gk/A403/constants.pdf
-convert_to_bolometric_luminosity = lambda logL_sun: 4.8 - 2.5*logL_sun
-
-def plot_point(fig, ax, color,command={}):
-    """
-    Function to plot a point with error bars on the HR diagram.
-    """
-
-    x_point = get_valid_input(
-        "Please provide the log effective temperature [Kelvin]: Log(T_eff) = ",
-        "Invalid input. Please provide a valid number for Log(T_eff): ",
-        command,
-        'temperature_kelvin'
-    )
-
-    x_point_err = get_valid_input(
-        "Please provide the log error for effective temperature [Kelvin]: ",
-        "Invalid input. Please provide a valid number for the error: ",
-        command,
-        'temperature_kelvin_err'
-    )
+class ValidationTools: 
     
-    y_point = get_valid_input(
-        "Please provide the log bolometric luminosity of the star: Log(L) = ",
-        "Invalid input. Please provide a valid number for Log(L): ",
-        command,
-        'luminosity_solar_lum'
-    )
-    y_point_err = get_valid_input(
-        "Please provide the log error for bolometric luminosity: ",
-        "Invalid input. Please provide a valid number for the error: ",
-        command,
-        'luminosity_solar_lum_err'
-    )
-    if command:
-        name=command['name']
-    else:
-        name = input("Please provide a name for this point: ")
+    def get_valid_input(prompt, error_prompt, command, var_type):
+        """
+        Helper function to get valid input for x and y points.
+        """
+        if command:
+            value=command[var_type]
+            if not isint(value) and not isfloat(value):
+                raise ValueError(f"Invalid {var_type} in: {command}")
+        else:    
+            value = input(prompt)
+            while not isint(value) and not isfloat(value):
+                value = input(error_prompt)
+        return float(value)
 
-    # Convert to log scale 
-    x_point = convert_to_log(x_point)  
-    x_point_err = np.abs(convert_to_log(x_point + x_point_err) - x_point) if x_point_err !=0 else 0
-    print(f"x_point (log scale): {x_point} ± {x_point_err}")
-    y_point = convert_to_log(y_point)
-    y_point_err = convert_to_log(y_point + y_point_err) - y_point if y_point_err !=0 else 0
-    print(f"y_point (log scale): {y_point} ± {y_point_err}")
-    # convert to bolometric luminosity
-    y_point = convert_to_bolometric_luminosity(y_point)
-    y_point_err = np.abs(convert_to_bolometric_luminosity(y_point + y_point_err) - y_point) if y_point_err !=0 else 0
-    print(f"y_point (bolometric luminosity): {y_point} ± {y_point_err}")
+    def validate_input(min_val, max_val, prompt, command, var_type):
+        """Prompts user for valid age range."""
+        if command:
+            command_var=command[var_type]
+            if (not isfloat(command_var) and not isint(command_var)) and (min_val <= float(command_var) <= max_val):
+                raise ValueError(f"Invalid {var_type} in: {command}")
+            value=command_var
+        else:
+            value=input(prompt)
+            while (not isfloat(value) and not isint(value)) and (min_val <= float(value) <= max_val):
+                error_msg=f"Not a valid input. {prompt}: "
+                value=input(error_msg)
+        
+        return float(value)
 
-    ax.scatter([x_point], [y_point], color=color)
-    ax.errorbar([x_point], [y_point], xerr=[x_point_err], yerr=[y_point_err], label=name, color=color, fmt='o')
-    return fig, ax
+class ConversionTools:
 
-def get_unique_color(available_colors, used_colors):
-    if not available_colors:
-        raise ValueError("No more unique colors available.")
+    convert_to_log = lambda x: np.log10(x) if x > 0 else 0 
     
-    color = available_colors.pop(0)
-    used_colors.add(color)
+    # source: https://www.astro.princeton.edu/~gk/A403/constants.pdf
+    convert_to_bolometric_luminosity = lambda logL_sun: 4.8 - 2.5*logL_sun
 
-    return color, available_colors
+class PlottingTools:
+    mpl.rcParams['text.usetex'] = True
 
-def plot_line_of_constant_temperature(fig, ax, y_limits, command_temp):
-    min_temp=command_temp['min_temp_kelvin']
-    max_temp=command_temp['max_temp_kelvin']
-    label=command_temp['label']
+    def plot_point(fig, ax, color,command={}):
+        """
+        Function to plot a point with error bars on the HR diagram.
+        """
 
-    #convert to log scale
-    min_temp=convert_to_log(min_temp)
-    max_temp=convert_to_log(max_temp)
+        x_point = ValidationTools.get_valid_input(
+            "Please provide the log effective temperature [Kelvin]: Log(T_eff) = ",
+            "Invalid input. Please provide a valid number for Log(T_eff): ",
+            command,
+            'temperature_kelvin'
+        )
 
-    # get min and max of y axis
-    y_min, y_max = y_limits
-    # fill in between min and max temperature
-    ax.fill_betweenx([y_min, y_max], min_temp, max_temp, color='lightgray', alpha=0.5, label=label)
-    return fig, ax
+        x_point_err = ValidationTools.get_valid_input(
+            "Please provide the log error for effective temperature [Kelvin]: ",
+            "Invalid input. Please provide a valid number for the error: ",
+            command,
+            'temperature_kelvin_err'
+        )
+        
+        y_point = ValidationTools.get_valid_input(
+            "Please provide the log bolometric luminosity of the star: Log(L) = ",
+            "Invalid input. Please provide a valid number for Log(L): ",
+            command,
+            'luminosity_solar_lum'
+        )
+        y_point_err = ValidationTools.get_valid_input(
+            "Please provide the log error for bolometric luminosity: ",
+            "Invalid input. Please provide a valid number for the error: ",
+            command,
+            'luminosity_solar_lum_err'
+        )
+        if command:
+            name=command['name']
+        else:
+            name = input("Please provide a name for this point: ")
 
-def plot_line_of_constant_luminosity(fig, ax, x_limits, command_lum):
-    min_lum=command_lum['min_lum_solar_lum']
-    max_lum=command_lum['max_lum_solar_lum']
-    label=command_lum['label']
+        # Convert to log scale 
+        x_point = ConversionTools.convert_to_log(x_point)  
+        x_point_err = np.abs(ConversionTools.convert_to_log(x_point + x_point_err) - x_point) if x_point_err !=0 else 0
+        print(f"x_point (log scale): {x_point} ± {x_point_err}")
+        y_point =ConversionTools. convert_to_log(y_point)
+        y_point_err = ConversionTools.convert_to_log(y_point + y_point_err) - y_point if y_point_err !=0 else 0
+        print(f"y_point (log scale): {y_point} ± {y_point_err}")
+        # convert to bolometric luminosity
+        if command['source']=='MIST':
+            y_point =ConversionTools.convert_to_bolometric_luminosity(y_point)
+            y_point_err = np.abs(ConversionTools.convert_to_bolometric_luminosity(y_point + y_point_err) - y_point) if y_point_err !=0 else 0
+        print(f"y_point (bolometric luminosity): {y_point} ± {y_point_err}")
 
-    #convert to log scale
-    min_lum=convert_to_bolometric_luminosity(convert_to_log(min_lum))
-    max_lum=convert_to_bolometric_luminosity(convert_to_log(max_lum))
+        ax.scatter([x_point], [y_point], color=color)
+        ax.errorbar([x_point], [y_point], xerr=[x_point_err], yerr=[y_point_err], label=name, color=color, fmt='o')
+        return fig, ax
 
-    # get min and max of x axis
-    x_min, x_max = x_limits
-    # fill in between min and max luminosity
-    ax.fill_between([x_min, x_max], min_lum, max_lum, color='lightgray', alpha=0.5, label=label)
-    return fig, ax
+    def get_unique_color(available_colors, used_colors):
+        if not available_colors:
+            raise ValueError("No more unique colors available.")
+        
+        color = available_colors.pop(0)
+        used_colors.add(color)
 
-def plot_format(fig, ax, title, fontsize=30):
-    plt.title(title, fontsize=fontsize)
-    plt.xlabel(r'log ($T_{eff}$) [K]', fontsize=fontsize)
-    plt.ylabel(r'log ($L_{bol}/L_{\odot}$)', fontsize=fontsize)
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-    plt.legend()
-    plt.gca().invert_xaxis()
-    plt.grid()
-    plt.show()
-
-def file_cleanup(files):
-    """Cleans up list of files by removing README and system files."""
-    exclude = {'README_tables.pdf', 'README_overview.pdf', '.DS_Store'}
-    return [f for f in files if f not in exclude]
-
-def read_track_data(path, mass):
-    """Reads evolutionary track data from the given file."""
-    return ascii.read(f"{path}/{mass}M.track.eep")
-
-def validate_input(min_val, max_val, prompt, command, var_type):
-    """Prompts user for valid age range."""
-    if command:
-        command_var=command[var_type]
-        if (not isfloat(command_var) and not isint(command_var)) and (min_val <= float(command_var) <= max_val):
-            raise ValueError(f"Invalid {var_type} in: {command}")
-        value=command_var
-    else:
-        value=input(prompt)
-        while (not isfloat(value) and not isint(value)) and (min_val <= float(value) <= max_val):
-            error_msg=f"Not a valid input. {prompt}: "
-            value=input(error_msg)
+        return color, available_colors
     
-    return float(value)
+    def plot_format(fig, ax, title, fontsize=30):
+        plt.title(title, fontsize=fontsize)
+        plt.xlabel(r'log ($T_{eff}$) [K]', fontsize=fontsize)
+        plt.ylabel(r'log ($L_{bol}/L_{\odot}$)', fontsize=fontsize)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
+        plt.legend()
+        plt.gca().invert_xaxis()
+        plt.grid()
+        plt.show()
 
-def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, path, step_size=0.001):
-    """Interpolates between two sets of evolutionary track data."""
-    df_lower=read_track_data(path, lower_bound_padded)
-    age_lower=df_lower['col1']
-    lum_lower=df_lower['col7']
-    temp_lower=df_lower['col12']
+    def plot_line_of_constant_temperature(fig, ax, y_limits, command_temp):
+        min_temp=command_temp['min_temp_kelvin']
+        max_temp=command_temp['max_temp_kelvin']
+        label=command_temp['label']
+
+        #convert to log scale
+        min_temp=ConversionTools.convert_to_log(min_temp)
+        max_temp=ConversionTools.convert_to_log(max_temp)
+
+        # get min and max of y axis
+        y_min, y_max = y_limits
+        # fill in between min and max temperature
+        ax.fill_betweenx([y_min, y_max], min_temp, max_temp, color='lightgray', alpha=0.5, label=label)
+        return fig, ax
+
+    def plot_line_of_constant_luminosity(fig, ax, x_limits, command_lum):
+        min_lum=ConversionTools.convert_to_log(command_lum['min_lum_solar_lum'])
+        max_lum=ConversionTools.convert_to_log(command_lum['max_lum_solar_lum'])
+        label=command_lum['label']
+
     
-    df_upper=read_track_data(path, upper_bound_padded)
-    age_upper=df_upper['col1']
-    lum_upper=df_upper['col7']
-    temp_upper=df_upper['col12']
+        #convert to log scale
+        if command_lum['source']=='MIST':
+            min_lum=ConversionTools.convert_to_bolometric_luminosity(min_lum)
+            max_lum=ConversionTools.convert_to_bolometric_luminosity(max_lum)
+
+        # get min and max of x axis
+        x_min, x_max = x_limits
+        # fill in between min and max luminosity
+        ax.fill_between([x_min, x_max], min_lum, max_lum, color='lightgray', alpha=0.5, label=label)
+        return fig, ax
+
+class ProcessingTools:
+    def file_cleanup(files):
+        """Cleans up list of files by removing README and system files."""
+        exclude = {'README_tables.pdf', 'README_overview.pdf', '.DS_Store', 'BHAC15_tracks+structure.txt'}
+        return [f for f in files if f not in exclude and f[-7:]!='ADD.DAT' and f[-7:]!='.HB.DAT']
+    
+    def read_track_data(directory, mass, source, sample_file):
+        """Reads evolutionary track data from the given file."""
+        if source=='MIST':
+            # for parameter descriptions refer to the README files in the respective track directory 
+            mass=f"{int(mass)*100:0>5}"
+            df=ascii.read(f"{directory}/{mass}M.track.eep")
+            age=df['col1'] # AGE in years
+            lum=df['col7'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity
+            temp=df['col12'] # LOG EFFECTIVE TEMPERATURE in Kelvin
+
+        elif source=='BHAC':
+            # for parameter descriptions refer to BHAC15_tracks+structure.txt in the respective track directory
+            betweenMandp,afterp=str(mass).split('.')
+            df=pd.read_csv(f"{directory}/BHAC15-M{betweenMandp}p{afterp:0<3}.txt", sep='\s+')
+            df_new=df.drop(['Rrad','k2conv','k2rad'],axis=1)
+            df_new.columns=['Mass (solar)','log t (yr)','Teff (K)','log(L/L_sun)','log g','R/Rs','Log(Li/Li0)','log Tc','log ROc','Mrad','Rrad','k2conv','k2rad']
+            age=10**df_new['log t (yr)']
+            lum=df_new['log(L/L_sun)']
+            temp=np.log10(df_new['Teff (K)'])
+
+        elif source=='Feiden Magnetic':
+            ProcessingTools.rename_Feiden_Magnetic_data(directory)
+
+            columns = [
+                "model_number", "shells", "age", "logL_Lsun", "logR_Rsun",
+                "log_g", "log_Teff", "Mconv_core", "Mconv_env", "Rconv_env"
+            ]
+
+            df = pd.read_csv(
+                f"{directory}/m{int(mass*1000):0>4}_GS98_p000_p0_y28_mlt1.884.ntrk",
+                comment='#',
+                sep='\s+',
+                header=None,
+                usecols=range(len(columns)),  
+                engine='python'
+            )
+            df.columns=columns
+            age=df['age']*10**9
+            lum=df['logL_Lsun']
+            temp=df['log_Teff']
+
+        elif source=='Feiden Non-Magnetic':
+
+            columns = [
+                "Age (yrs)",
+                "Log T",
+                "Log g", 
+                "Log L", 
+                "Log R",
+                "Y_core",
+                "Z_core",
+                "(Z/X)_surf",
+                "A(Li)",
+                "L_H",  
+                "k2",      
+                "B_tach", 
+                "u_conv",
+                "t_conv"
+            ]
+
+            df = pd.read_csv(
+                f"{directory}/m{int(mass*1000):0>4}_GS98_p000_p0_y28_mlt1.884.trk",
+                comment='#',
+                sep='\s+',
+                header=None,
+                usecols=range(len(columns)),
+                engine='python'
+            )
+        
+            df.columns = columns
+            age=df["Age (yrs)"]
+            lum=df['Log L']
+            temp=df['Log T']
+
+        elif source=='PARSEC1.2S':
+            ProcessingTools.rename_PARSEC1p2S_data(directory)
+            file_prefix, _=sample_file.split('M')
+            integer_mass=f"{str(mass).split('.')[0]:0>3}"
+            fractional_mass=f"{str(mass).split('.')[1]:0<3}"
+            df=pd.read_csv(f"{directory}/{file_prefix}M{integer_mass}.{fractional_mass}.DAT", sep='\s+')
+            age=df['AGE']
+            temp=df['LOG_TE']
+            lum=df['LOG_L']
+
+        return age, lum, temp
+    
+    def rename_PARSEC1p2S_data(directory):
+        """standardizes PARSEC file naming convention by padding whole numbers"""
+        for file in os.listdir(directory):
+            beforeM, afterM=file.split('M')
+            before_decimal,after_decimal=afterM.split('.', maxsplit=1)
+            old_path=os.path.join(directory,file)
+            new_file_name=os.path.join(directory,f"{beforeM}M{before_decimal:0>3}.{after_decimal}")
+            os.rename(old_path,new_file_name)
+            print(f"Renamed {old_path} to {new_file_name}")
+        return 
+
+    def rename_Feiden_Magnetic_data(directory):
+        """standardizes Feiden Magnetic file naming convention by removing _mag*.ntrk and replacing with .ntrk"""
+        for filename in os.listdir(directory):
+            if filename.endswith(".ntrk"):
+                new_name = re.sub(r'_mag[^.]*\.ntrk$', '.ntrk', filename)
+                if new_name != filename:
+                    old_path = os.path.join(directory, filename)
+                    new_path = os.path.join(directory, new_name)
+                    print(f"Renaming: {filename} → {new_name}")
+                    os.rename(old_path, new_path)
+        return 
+
+
+def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, directory, source, sample_file, step_size=0.001):
+    """Interpolates between two sets of evolutionary track data."""    
+    age_lower, lum_lower, temp_lower=ProcessingTools.read_track_data(directory, lower_bound_padded, source, sample_file)
+    age_upper, lum_upper, temp_upper=ProcessingTools.read_track_data(directory, upper_bound_padded, source, sample_file)
 
     target_step=0
     total_steps=0
-    mass_choice_float=float(padded_mass_choice)/100
-    lower_mass_bound_float=float(lower_bound_padded)/100
-    upper_mass_bound_float=float(upper_bound_padded)/100
+    mass_choice_float=padded_mass_choice
+    lower_mass_bound_float=lower_bound_padded
+    upper_mass_bound_float=upper_bound_padded
+
     while lower_mass_bound_float+total_steps < upper_mass_bound_float:
         if lower_mass_bound_float+target_step < mass_choice_float:
             # keep track of number of steps to user selected mass
@@ -184,30 +296,27 @@ def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bou
     age_interp = [np.linspace(al, ah, num_steps)[target_idx] for al, ah in zip(age_lower, age_upper)]
     return temp_interp, lum_interp, age_interp
 
-def get_track_data(padded_mass_choice, file_ints_str, path, age_constraints, command):
+def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints, command, sample_file):
     """returns temperature and luminosity data for a given stellar mass evolutionary track"""
+    source=command['source']
     # Check if min_interp_dec exists in files
     if padded_mass_choice in file_ints_str:
-        print(f"WARNING: Interpolation not needed for selected mass as file is available: {padded_mass_choice}M.track.eep")
-        df = read_track_data(path, padded_mass_choice)
-        age_arr=df['col1'] # AGE in years
-        
-        lum_arr=df['col7'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity
-        temp_arr=df['col12'] # LOG EFFECTIVE TEMPERATURE in Kelvin 
+        print(f"WARNING: Interpolation not needed for selected mass as file is available: {int(padded_mass_choice*100):0>5}M.track.eep")
+        age_arr,lum_arr,temp_arr=ProcessingTools.read_track_data(directory, padded_mass_choice, source, sample_file)
         
     else: # need to interpolate for mass 
         print(f"WARNING: File not found, generating interpolated evolutionary track for the selected stellar mass.")
         # get the stellar mass files that upper bound and lower bound the user's selected mass choice 
         i=0
-        while i < len(file_ints_str) and float(file_ints_str[i])/100 < float(padded_mass_choice)/100:
+        while i < len(file_ints_str) and file_ints_str[i] < padded_mass_choice:
             i+=1
         i-=1
-        temp_arr,lum_arr,age_arr= interpolate_between_tracks(padded_mass_choice, lower_bound_padded=file_ints_str[i], upper_bound_padded=file_ints_str[i+1], path=path)
+        temp_arr,lum_arr,age_arr= interpolate_between_tracks(padded_mass_choice, lower_bound_padded=file_ints_str[i], upper_bound_padded=file_ints_str[i+1], directory=directory, source=source, sample_file=sample_file)
 
     # only use the lower mass data to set the age range as they live longer than high mass stars
     if np.sum(age_constraints) == 0: 
         min_age, max_age = min(age_arr), max(age_arr)
-        user_age_min = validate_input(
+        user_age_min = ValidationTools.validate_input(
                                     min_age,
                                     max_age,
                                     f"Enter minimum age (between {min_age} and {max_age} [years]): ",
@@ -215,7 +324,7 @@ def get_track_data(padded_mass_choice, file_ints_str, path, age_constraints, com
                                     var_type='min_age_years'
                                     )
     
-        user_age_max = validate_input(
+        user_age_max = ValidationTools.validate_input(
                                     user_age_min,
                                     max_age,
                                     f"Enter maximum age (between {user_age_min} and {max_age} [years]): ",
@@ -238,29 +347,33 @@ def get_track_data(padded_mass_choice, file_ints_str, path, age_constraints, com
     age_arr = age_arr[mask]
     return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
 
-def plot_eep(fig, ax, interactive, command={}, linestyle='-', debug=False):
+def plot_eep(fig, ax, interactive, command={}, source='MIST', linestyle='-', debug=False):
     """Main function to plot evolutionary track with EEP interpolation."""
     if interactive:
-        path = input("Input name of untarred evolutionary track file: ")
+        directory = input("Input name of untarred evolutionary track file: ")
     else:
-        path=command['path_to_untarred_ET']
-    l_files = os.listdir(path)
-    arr_clean = file_cleanup(l_files)
-    
-    # Sort the mass files in increasing order and present to user
-    v_selec = sorted(arr_clean)
-    file_ints_str = [file[:5] for file in v_selec]
-    minimum_available_mass=float(min(file_ints_str))/100
-    maximum_available_mass=float(max(file_ints_str))/100
+        directory=command['path_to_untarred_ET']
 
-    if debug:
-        for i, file in enumerate(v_selec):
-            print(f"{file} Solar Masses: {float(file_ints_str[i]) / 100}")
+    l_files = os.listdir(directory)
+    source=command['source']
+    only_data_files = sorted(ProcessingTools.file_cleanup(l_files))
+    if source=='MIST' or source=='BHAC':
+        if source=='MIST':
+            file_ints_str = [float(file[:5])/100 for file in only_data_files]
+        elif source=='BHAC':
+            file_ints_str = [float(file.split('M')[1].split('p')[0]+'.'+file.split('p')[1].split('.txt')[0]) for file in only_data_files]
+    elif source=='PARSEC1.2S':
+            file_ints_str = [float(file.split('M')[1].split('.DAT', maxsplit=1)[0]) for file in only_data_files]
+            print(file_ints_str)
+    elif source=='Feiden-Magnetic' or 'Feiden-Non-Magnetic':
+        file_ints_str = [float(file[1:5])/1000 for file in only_data_files]
     
+    minimum_available_mass=float(min(file_ints_str))
+    maximum_available_mass=float(max(file_ints_str))
     # Get user input for interpolation bounds
     print("INSTRUCTIONS: Input mass. Ex: For 255.05 solar masses, enter 255.05")
     
-    min_interp_dec = validate_input(
+    min_interp_dec = ValidationTools.validate_input(
         minimum_available_mass, 
         maximum_available_mass,
         f"Input mass for lower bound evolutionary track curve (range {minimum_available_mass} - {maximum_available_mass} "+r"[M_sun]): ",
@@ -268,7 +381,7 @@ def plot_eep(fig, ax, interactive, command={}, linestyle='-', debug=False):
         var_type='lower_bound_dynamical_mass_solar_mass'
     )
     
-    max_interp_dec = validate_input(
+    max_interp_dec = ValidationTools.validate_input(
         min_interp_dec, 
         maximum_available_mass,
         f"Input mass for maximum bound evolutionary track curve (range {min_interp_dec} - {maximum_available_mass} "+r"[M_sun]): ",
@@ -276,13 +389,13 @@ def plot_eep(fig, ax, interactive, command={}, linestyle='-', debug=False):
         var_type='upper_bound_dynamical_mass_solar_mass'
     )
     
-    padded_min_interp_dec=f"{min_interp_dec*100:0>5}"
-    padded_max_interp_dec=f"{max_interp_dec*100:0>5}"
+    padded_min_interp_dec=min_interp_dec
+    padded_max_interp_dec=max_interp_dec
     
-    min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,path,age_constraints=[0,0], command=command)
-    max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,path,age_constraints=[user_age_min, user_age_max], command=command)
+    min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,directory,age_constraints=[0,0], command=command, sample_file=only_data_files[0])
+    max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
 
-    # use age arrays to define new age grid
+    # use age arrays to define new age grid    
     common_age_grid = np.linspace(max(min_age_arr[0], max_age_arr[0]), min(min_age_arr[-1], max_age_arr[-1]), num=500)
 
     # this partitions our evolutionary tracks and fits cubic splines to each parition
@@ -296,8 +409,8 @@ def plot_eep(fig, ax, interactive, command={}, linestyle='-', debug=False):
     T1_new, L1_new = Akima_min_temp(common_age_grid), Akima_min_lum(common_age_grid)
     T2_new, L2_new = Akima_max_temp(common_age_grid), Akima_max_lum(common_age_grid)
 
-    lower_bound_label = command['lower_bound_dynamical_mass_label']
-    upper_bound_label = command['upper_bound_dynamical_mass_label']
+    lower_bound_label = command['lower_bound_dynamical_mass_label']+f" {source}"
+    upper_bound_label = command['upper_bound_dynamical_mass_label']+f" {source}"
     ax.plot(T1_new, L1_new, color='tab:blue', label=lower_bound_label)
     ax.plot(T2_new, L2_new, color='tab:orange', label=upper_bound_label)
     
@@ -372,7 +485,7 @@ def plot_iso(fig, ax, interactive, command={}, linestyle='-', debug=False):
 
     min_age=min(AGE_yrs)
     max_age=max(AGE_yrs)
-    user_age_min = validate_input(
+    user_age_min = ValidationTools.validate_input(
                                 min_age,
                                 max_age,
                                 f"Enter minimum age for isochrone (between {min_age} and {max_age} [years]): ",
@@ -380,7 +493,7 @@ def plot_iso(fig, ax, interactive, command={}, linestyle='-', debug=False):
                                 var_type='min_age_years'
                                 )
 
-    user_age_max = validate_input(
+    user_age_max = ValidationTools.validate_input(
                                 user_age_min,
                                 max_age,
                                 f"Enter maximum age for isochrone (between {user_age_min} and {max_age} [years]): ",
