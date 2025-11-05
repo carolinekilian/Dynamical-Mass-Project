@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # run(interactive=True, commands={})
     
     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
-    commands=   {
+    commands={
                     '1': [ # the dynamical mass outputs go here 
                         {   'source': 'PARSEC1.2S',
                             'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.001Y0.25',                            
@@ -172,6 +172,6 @@ if __name__ == "__main__":
                         # ]
                     },
                 'title': 'test_title'
-                }
-    
+                } 
+    # testing interactive 
     run(interactive=False, commands=commands)
