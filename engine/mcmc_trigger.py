@@ -112,6 +112,10 @@ def lnprob(p0):
           return -np.inf
        else:
           valid_sample_parameters[param_name]=mcmc_parameter_sample
+
+   if valid_sample_parameters['Rin'] >= valid_sample_parameters['Rc']:
+      print(f"Sampled Rin, Rin={valid_sample_parameters['Rin']}, >= Sampled Critical Radius, Rc={valid_sample_parameters['Rc']}")
+      return -np.inf
    
    M_stell=10.0 ** valid_sample_parameters['logmass_stell']
    Mdisk=10.0 ** valid_sample_parameters['logmass']
