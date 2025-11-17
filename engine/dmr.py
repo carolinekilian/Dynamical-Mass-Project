@@ -211,6 +211,7 @@ def ChiSqr(datafile, modfile, fileout, dxy, dRA, dDec, residual, pbcor):
         # note -- the shape [:,0,0,0,0,0,0] etc. may not be the same as the shape of your data. 
 
     if residual==False:
+       # axis 2 (the last index in the arrays below) accesses the weights 
        model_vis[:,0,0,0,:,0,2]=data[:,0,0,0,:,0,2]                                                     
        model_vis[:,0,0,0,:,1,2]=data[:,0,0,0,:,1,2]     
        data_vis[0].data['data']=model_vis
