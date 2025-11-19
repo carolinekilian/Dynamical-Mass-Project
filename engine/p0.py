@@ -20,23 +20,27 @@ INPUT_RESID_DMR=f'{DMR_PREFIX}_PYTHON_resid.fits'
 # ONLY edit VARIABLES below this line
 # DO NOT try running dmr files with any additional print statements as dmr-script.sh read variables form stdout (i.e stuff printed in terminal)
 # if you really need to add print statements do so in the 'playground' at the bottom of this file 
-DISKNAME='HD152989'
-IMFILE=f'{CASA_DATA}/HD152989_Aug23_18chan.fits'
-DATAFILE=f'{CASA_DATA}/HD152989_Aug23_18chan_var_vis.uvfits'
-CSV_FILE=f'{DISKNAME}_Oct_13_MCMC.csv'
+DISKNAME='HD9985'
+#################################################
+
+CHAIN_TYPE="MOMENT9"
+IMFILE=f'{CASA_DATA}/HD9985_2432=Sep1_final_30chan.fits'
+DATAFILE=f'{CASA_DATA}/HD9985_2432=Sep1_final_30chan_var_vis.uvfits'
+CSV_FILE=f'clean_{DISKNAME}_Nov10_MCMC.csv'
 #################################################
 
 # MUST FOLLOW convention below: f'{CASA_DATA}/<filename>.uvfits': f'{CASA_DATA}/<filename>.fits',
 # NOTE: ALL .uvfits and .fits FILES MUST BE ON THE SAME VELOCITY GRID (i.e they should have the same velocities -- up to the ten-thousandths --
 #       for all channels) 
 ADDITIONAL_OBS={
+ f'{CASA_DATA}/HD9985_3e5=Sep7_final_30chan_var_vis.uvfits':f'{CASA_DATA}/HD9985_3e5=Sep7_final_30chan.fits'
  #f'{CASA_DATA}/secondfile.uvfits' : f'{CASA_DATA}/secondfile.fits',
  # ...
 }
 #################################################
 
 # Ideally this is the same pixel size as used in tclean -- this is used for GALARIO tasks
-PIXEL_SIZE=0.024787369505505884
+PIXEL_SIZE=0.03773198955909533
 
 #################################################
 
@@ -46,10 +50,12 @@ EXCLUDED_CHANNEL_IDXs=[] # ex: [4,5,8]
 
 # Use SIMBAD (to get these distance measurements)
 # NOTE: I converted to arcsec, SIMBAD gives you measurements in milli-arcsec
-# https://simbad.cds.unistra.fr/simbad/sim-basic?Ident=HD152989&submit=SIMBAD+search
-SIMBAD_parallax_arcsec=8.6755/1000
-SIMBAD_parallax_uncertainty_arcsec=0.0317/1000
+# https://simbad.cds.unistra.fr/simbad/sim-basic?Ident=HD9985&submit=SIMBAD+search
+SIMBAD_parallax_arcsec=6.2871/1000
+SIMBAD_parallax_uncertainty_arcsec=0.0351/1000
+# https://en.wikipedia.org/wiki/Stellar_parallax, look under Error 
 DISTANCE_PC=1/SIMBAD_parallax_arcsec
+DISTANCE_PC_UNCERT=SIMBAD_parallax_uncertainty_arcsec / (SIMBAD_parallax_arcsec**2)
 
 #################################################
 
@@ -71,25 +77,25 @@ param_order=[
             #"new_parameter_name1",
             #...,
 ]
-
-# the intitial parameters for your MCMC run (p0) 
+ 
 init_params={
-            "logmass_stell": 0.2672091787012066,  
-            "incl": 73.29077893244971, 
-            "Rc": 42.56025926929232,  
-            "pp": 2.28775049147713, 
-            "pa": 11.716316094540533,    
-            "logmass": -5.202798478892286, 
-            "Rin": 41.33932507247196,   
-            "xoff": 0.002344042320019,   
-            "yoff": -0.0439296398276957,  
-            "vsys": 4.235875794042619, 
-            "tatm": 299.8332659911651, 
+            "logmass_stell": 0.2541301516050099,  
+            "incl": 52.280052124901545, 
+            "Rc": 30.6, #27.507373799364828,  
+            "pp": 2.013402684982447, 
+            "pa": 291.39417783993065,    
+            "logmass": -1.5581679400680526, 
+            "Rin": 27.5, #56.65674896884367,   
+            "xoff": -0.0762665775553623,   
+            "yoff": -0.0284065198876803,  
+            "vsys": 3.03593590742422514, 
+            "tatm": 14.120830266056863, 
             #"new_parameter_name1":new_parameter_initial_value,
             #..., 
 }
+#{'logmass_stell': 0.2541301516050099, 'incl': 52.280052124901545, 'Rc': 27.507373799364828, 'pp': 2.013402684982447, 'pa': 291.39417783993065, 'logmass': -1.5581679400680526, 'Rin': 56.65674896884367, 'xoff': -0.0762665775553623, 'yoff': -0.0284065198876803, 'vsys': 3.3593590742422514, 'tatm': 14.120830266056863}
 
-# the widths of the parameter distributions (AKA "sigma" in previous mcmc scripts) 
+
 params_uncertainty={
             "logmass_stell": 0.05,
             "incl": 1,
@@ -107,8 +113,8 @@ params_uncertainty={
 }
 
 param_priors={
-            "logmass_stell":[-1, 1],
-            "incl":[0, 90], # you should only ever restrict this range; do not make it larger as it's physically unreasonable
+            "logmass_stell":[-1, 2],
+            "incl":[0, 90],
             "Rc":[0, 200],
             "pp":[-5, 5],
             "pa":[0, 360],
@@ -116,7 +122,7 @@ param_priors={
             "Rin":[0,100],
             "xoff":[-1,1],
             "yoff":[-1,1],
-            "vsys":[3,15],
+            "vsys":[0.1,15],
             "tatm":[0,500],
             #"new_parameter_name1":[new_parameter_lower_bound,new_parameter_upper_bound],
             #...,
@@ -145,12 +151,12 @@ mcmc_hyper_params = {
             "nwalkers": 26, 
             "nsteps": 4000,
             "ndim": len(init_params),
-            "restart": False
+            "restart": True
 }
 #################################################
 
 # NEED this print statement to have dmr-script read in variables
-print(f"{DATAFILE} {PIXEL_SIZE} {INPUT_MODEL_DMR} {INPUT_RESID_DMR} {DMR_OUTPUTS} {DMR_PREFIX} {mcmc_hyper_params['nwalkers']}") 
+print(f"{DATAFILE} {PIXEL_SIZE} {INPUT_MODEL_DMR} {INPUT_RESID_DMR} {DMR_OUTPUTS} {DMR_PREFIX}  {mcmc_hyper_params['nwalkers']}") 
 
 #################################################
 
@@ -160,3 +166,5 @@ if __name__ == '__main__':
    # only add print statements here ... this is your playground 
    print(init_params)
    print(param_order)
+   print("Distance [pc]", DISTANCE_PC)
+   print("Distance uncert. [pc]", DISTANCE_PC_UNCERT)
