@@ -3,8 +3,15 @@ from fastnumbers import isint
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
+color_map = {
+        "BHAC": "cornflowerblue", 
+        "PARSEC1.2S": "darkgreen",
+        "Feiden Non-Magnetic": "goldenrod",
+        "Feiden Magnetic": "orangered",
+        "MIST": "darkorchid"
+        }
 
-def run(interactive, commands={}):
+def run(interactive, commands={}, color_map=color_map):
     # Colors for the data points in the HR diagram
     # Get a list of all allowed colors in matplotlib
     available_colors = list(mcolors.TABLEAU_COLORS)#['black', 'blue', 'red', 'orange', 'grey', 'purple', 'green']
@@ -23,7 +30,7 @@ def run(interactive, commands={}):
             decision = int(decision)
 
             if decision == 1:
-                fig, ax = plot_eep(fig, ax, interactive)
+                fig, ax = plot_eep(fig, ax, interactive, color_map)
             elif decision == 2:
                 fig, ax = plot_iso(fig, ax, interactive)
             elif decision == 3:
@@ -44,7 +51,8 @@ def run(interactive, commands={}):
             for command_pp in commands.get('3', {}).get('pp', []):
                 command_pp['source']=command_et['source']
 
-            fig, ax = plot_eep(fig, ax, interactive, command_et)
+            print(f"Generating {command_pp['source']} track")
+            fig, ax = plot_eep(fig, ax, interactive, color_map, command_et)
         for command_iso in commands.get('2',[]):
             fig, ax = plot_iso(fig, ax, interactive,command_iso)
         # plot all of your points
@@ -68,110 +76,107 @@ def run(interactive, commands={}):
 if __name__ == "__main__":
     # TODO: update interactive mode so that it can highlight regions of constant temp and lum 
     # run(interactive=True, commands={})
-    
     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
+    lower_mass = 1.865852
+    upper_mass = 1.911238
+    lower_age = 14e6
+    upper_age = 18e6
+
     commands={
-                    '1': [ # the dynamical mass outputs go here 
+                    '1': [ # the dynamical mass outputs go here
                         {   'source': 'PARSEC1.2S',
-                            'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.001Y0.25',                            
-                            'lower_bound_dynamical_mass_solar_mass': 1.100,
-                            'lower_bound_dynamical_mass_label': r'1.00 $M_{\odot}$',
-                            'upper_bound_dynamical_mass_solar_mass': 1.180,
-                            'upper_bound_dynamical_mass_label': r'1.105 $M_{\odot}$',
-                            'min_age_years': 5e6,
-                            'max_age_years': 15e7,
-                        },
-                        # {   'source': 'Feiden Non-Magnetic',
-                        #     'path_to_untarred_ET':'all_GS98_p000_p0_y28_mlt1.884 - Feiden Non-Magnetic',
-                        #     'lower_bound_dynamical_mass_solar_mass': 1.300,
-                        #     'lower_bound_dynamical_mass_label': r'1.00 $M_{\odot}$',
-                        #     'upper_bound_dynamical_mass_solar_mass': 1.380,
-                        #     'upper_bound_dynamical_mass_label': r'1.105 $M_{\odot}$',
-                        #     'min_age_years': 5e6,
-                        #     'max_age_years': 15e7,
-                        # },
-                        # {   'source': 'Feiden Magnetic',
-                        #     'path_to_untarred_ET':'all__GS98_p000_p0_y28_mlt1.884_Beq - Feiden Magnetic',
-                        #     'lower_bound_dynamical_mass_solar_mass': 1.300,
-                        #     'lower_bound_dynamical_mass_label': r'1.00 $M_{\odot}$',
-                        #     'upper_bound_dynamical_mass_solar_mass': 1.380,
-                        #     'upper_bound_dynamical_mass_label': r'1.105 $M_{\odot}$',
-                        #     'min_age_years': 5e6,
-                        #     'max_age_years': 15e7,
-                        # },
-                        # {   'source': 'BHAC',
-                        #     'path_to_untarred_ET':'BHAC15',
-                        #     'lower_bound_dynamical_mass_solar_mass': 1.100,
-                        #     'lower_bound_dynamical_mass_label': r'1.00 $M_{\odot}$',
-                        #     'upper_bound_dynamical_mass_solar_mass': 1.105,
-                        #     'upper_bound_dynamical_mass_label': r'1.105 $M_{\odot}$',
-                        #     'min_age_years': 5e6,
-                        #     'max_age_years': 15e7,
-                        # },
-                        # {   'source': 'MIST',
-                        #     'path_to_untarred_ET':'MIST_v1.2_feh_m0.25_afe_p0.0_vvcrit0.0_EEPS',
-                        #     'lower_bound_dynamical_mass_solar_mass': 1.10,
-                        #     'lower_bound_dynamical_mass_label': r'2.10 $M_{\odot}$',
-                        #     'upper_bound_dynamical_mass_solar_mass': 1.18,
-                        #     'upper_bound_dynamical_mass_label': r'2.15 $M_{\odot}$',
-                        #     'min_age_years': 5e6,
-                        #     'max_age_years': 15e6,
-                        # }
-                    ], 
+                            'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.001Y0.25',
+                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
+                            'lower_bound_dynamical_mass_label': f"{lower_mass} " +r'$M_{\odot}$',
+                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
+                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
+                            'min_age_years': lower_age,
+                            'max_age_years': upper_age,
+                        },  
+                        {   'source': 'Feiden Non-Magnetic',
+                            'path_to_untarred_ET':'all_GS98_p000_p0_y28_mlt1.884 - Feiden Non-Magnetic',
+                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
+                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+ r'$M_{\odot}$',
+                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
+                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
+                            'min_age_years': lower_age,
+                            'max_age_years': upper_age,
+                        },  
+                        {   'source': 'Feiden Magnetic',
+                            'path_to_untarred_ET':'all__GS98_p000_p0_y28_mlt1.884_Beq - Feiden Magnetic',
+                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
+                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
+                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
+                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
+                            'min_age_years': lower_age,
+                            'max_age_years': upper_age,
+                        },  
+                        {   'source': 'BHAC',
+                            'path_to_untarred_ET':'BHAC15',
+                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
+                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
+                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
+                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
+                            'min_age_years': lower_age,
+                            'max_age_years': upper_age,
+                        },  
+                        {   'source': 'MIST',
+                            'path_to_untarred_ET':'MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS',
+                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
+                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
+                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
+                            'upper_bound_dynamical_mass_label': f"{upper_mass} " +r'$M_{\odot}$',
+                            'min_age_years': lower_age,
+                            'max_age_years': upper_age,
+                        }   
+                    ],  
                     # '2': [ # isochrones go here
-                    #     {
+                    #     {   
                     #         'path_to_iso':'MIST_v1.2_vvcrit0.0_UBVRIplus',
                     #         '[Fe/H]':'-0.25',
                     #         'min_age_years':6.4e6,
                     #         'max_age_years':7.9e6,
                     #         'label':'iso curve'
-                    #     }
+                    #     }   
                     # ],
                     '3': { # spectroscopic and photometric points go here
-                        # 'pp': [
-                        #     {
-                        #         'temperature_kelvin':3600,
-                        #         'temperature_kelvin_err':300,
-                        #         'luminosity_solar_lum':13,
-                        #         'luminosity_solar_lum_err':2,
-                        #         'name':'dummy1'
-                        #     },
-                        #     {
-                        #         'temperature_kelvin':3700,
-                        #         'temperature_kelvin_err':0,
-                        #         'luminosity_solar_lum':20,
-                        #         'luminosity_solar_lum_err':0,
-                        #         'name':'dummy2'
-                        #     }
-                        # ],
-                    },
+                        'pp': [
+                            {   
+                                'temperature_kelvin':8250,
+                                'temperature_kelvin_err':150,
+                                'luminosity_solar_lum':11.24,
+                                'luminosity_solar_lum_err':0.41,
+                                'name':'Moor 2025'
+                            },  
+                        ],  
+                    },  
                     '4': { # lines of constant temperature and luminosity go here
                         # 'temperature_lines':[
-                        #     {
+                        #     {   
                         #         'min_temp_kelvin':3500,
                         #         'max_temp_kelvin':3700,
                         #         'label':'Temp range 1'
-                        #     },
-                        #     {
+                        #     },  
+                        #     {   
                         #         'min_temp_kelvin':3800,
                         #         'max_temp_kelvin':4000,
                         #         'label':'Temp range 2'
-                        #     }
+                        #     }   
                         # ],
                         # 'luminosity_lines':[
-                        #     {
+                        #     {   
                         #         'min_lum_solar_lum':15,
                         #         'max_lum_solar_lum':17,
                         #         'label':'Lum range 1'
-                        #     },
-                        #     {
+                        #     },  
+                        #     {   
                         #         'min_lum_solar_lum':18,
                         #         'max_lum_solar_lum':20,
                         #         'label':'Lum range 2'
-                        #     }
-                        # ]
-                    },
-                'title': 'test_title'
-                } 
-    # testing interactive 
-    run(interactive=False, commands=commands)
+                        #     }   
+                        # ] 
+                    },  
+                'title': 'HD155853'
+                }   
+    # testing interactive
+    run(interactive=False, commands=commands, color_map=color_map)

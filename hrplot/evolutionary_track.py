@@ -47,6 +47,8 @@ class ConversionTools:
     # source: https://www.astro.princeton.edu/~gk/A403/constants.pdf
     convert_to_bolometric_luminosity = lambda logL_sun: 4.8 - 2.5*logL_sun
 
+    uncertainty_prop = lambda uncert, data_point: uncert/(np.log(10)*data_point)
+
 class PlottingTools:
     mpl.rcParams['text.usetex'] = True
 
@@ -55,27 +57,27 @@ class PlottingTools:
         Function to plot a point with error bars on the HR diagram.
         """
 
-        x_point = ValidationTools.get_valid_input(
+        x_point_r = ValidationTools.get_valid_input(
             "Please provide the log effective temperature [Kelvin]: Log(T_eff) = ",
             "Invalid input. Please provide a valid number for Log(T_eff): ",
             command,
             'temperature_kelvin'
         )
 
-        x_point_err = ValidationTools.get_valid_input(
+        x_point_err_r = ValidationTools.get_valid_input(
             "Please provide the log error for effective temperature [Kelvin]: ",
             "Invalid input. Please provide a valid number for the error: ",
             command,
             'temperature_kelvin_err'
         )
         
-        y_point = ValidationTools.get_valid_input(
+        y_point_r = ValidationTools.get_valid_input(
             "Please provide the log bolometric luminosity of the star: Log(L) = ",
             "Invalid input. Please provide a valid number for Log(L): ",
             command,
             'luminosity_solar_lum'
         )
-        y_point_err = ValidationTools.get_valid_input(
+        y_point_err_r = ValidationTools.get_valid_input(
             "Please provide the log error for bolometric luminosity: ",
             "Invalid input. Please provide a valid number for the error: ",
             command,
@@ -87,17 +89,12 @@ class PlottingTools:
             name = input("Please provide a name for this point: ")
 
         # Convert to log scale 
-        x_point = ConversionTools.convert_to_log(x_point)  
-        x_point_err = np.abs(ConversionTools.convert_to_log(x_point + x_point_err) - x_point) if x_point_err !=0 else 0
+        x_point = ConversionTools.convert_to_log(x_point_r)  
+        x_point_err = ConversionTools.uncertainty_prop(x_point_err_r, x_point_r) if x_point_err_r !=0 else 0
         print(f"x_point (log scale): {x_point} ± {x_point_err}")
-        y_point =ConversionTools. convert_to_log(y_point)
-        y_point_err = ConversionTools.convert_to_log(y_point + y_point_err) - y_point if y_point_err !=0 else 0
+        y_point =ConversionTools.convert_to_log(y_point_r)
+        y_point_err = ConversionTools.uncertainty_prop(y_point_err_r, y_point_r) if y_point_err_r !=0 else 0
         print(f"y_point (log scale): {y_point} ± {y_point_err}")
-        # convert to bolometric luminosity
-        if command['source']=='MIST':
-            y_point =ConversionTools.convert_to_bolometric_luminosity(y_point)
-            y_point_err = np.abs(ConversionTools.convert_to_bolometric_luminosity(y_point + y_point_err) - y_point) if y_point_err !=0 else 0
-        print(f"y_point (bolometric luminosity): {y_point} ± {y_point_err}")
 
         ax.scatter([x_point], [y_point], color=color)
         ax.errorbar([x_point], [y_point], xerr=[x_point_err], yerr=[y_point_err], label=name, color=color, fmt='o')
@@ -301,6 +298,7 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     source=command['source']
     # Check if min_interp_dec exists in files
     if padded_mass_choice in file_ints_str:
+        print(11, padded_mass_choice)
         print(f"WARNING: Interpolation not needed for selected mass as file is available: {int(padded_mass_choice*100):0>5}M.track.eep")
         age_arr,lum_arr,temp_arr=ProcessingTools.read_track_data(directory, padded_mass_choice, source, sample_file)
         
@@ -310,7 +308,12 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
         i=0
         while i < len(file_ints_str) and file_ints_str[i] < padded_mass_choice:
             i+=1
-        i-=1
+
+        if i == len(file_ints_str): 
+            i-=2
+        else: 
+            i-=1 
+        print(22,padded_mass_choice, file_ints_str[i], file_ints_str[i+1])
         temp_arr,lum_arr,age_arr= interpolate_between_tracks(padded_mass_choice, lower_bound_padded=file_ints_str[i], upper_bound_padded=file_ints_str[i+1], directory=directory, source=source, sample_file=sample_file)
 
     # only use the lower mass data to set the age range as they live longer than high mass stars
@@ -347,7 +350,7 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     age_arr = age_arr[mask]
     return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
 
-def plot_eep(fig, ax, interactive, command={}, source='MIST', linestyle='-', debug=False):
+def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linestyle='-', debug=False):
     """Main function to plot evolutionary track with EEP interpolation."""
     if interactive:
         directory = input("Input name of untarred evolutionary track file: ")
@@ -394,7 +397,7 @@ def plot_eep(fig, ax, interactive, command={}, source='MIST', linestyle='-', deb
     
     min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,directory,age_constraints=[0,0], command=command, sample_file=only_data_files[0])
     max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
-
+    
     # use age arrays to define new age grid    
     common_age_grid = np.linspace(max(min_age_arr[0], max_age_arr[0]), min(min_age_arr[-1], max_age_arr[-1]), num=500)
 
@@ -411,18 +414,18 @@ def plot_eep(fig, ax, interactive, command={}, source='MIST', linestyle='-', deb
 
     lower_bound_label = command['lower_bound_dynamical_mass_label']+f" {source}"
     upper_bound_label = command['upper_bound_dynamical_mass_label']+f" {source}"
-    ax.plot(T1_new, L1_new, color='tab:blue', label=lower_bound_label)
-    ax.plot(T2_new, L2_new, color='tab:orange', label=upper_bound_label)
+    ax.plot(T1_new, L1_new, color=color_map[command['source']], label=lower_bound_label, lw=3)
+    ax.plot(T2_new, L2_new, color=color_map[command['source']], label=upper_bound_label, lw=3)
     
     # Draw equal-age connecting lines
     previous_age = common_age_grid[0]
     previous_idx = 0 
     for i, age in enumerate(common_age_grid):
-        plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], 'k--', alpha=0.4)
+        plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.4)
         # highlight every 700,000 years
         if common_age_grid[i] - previous_age >= 700_000 and i - previous_idx >= 3:
-            ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='purple', rotation=45)
-            plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], 'k--', alpha=0.8, color='purple')
+            #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
+            plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
             previous_age = common_age_grid[i]
             previous_idx = i
     return fig, ax
