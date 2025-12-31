@@ -43,10 +43,7 @@ class ValidationTools:
 class ConversionTools:
 
     convert_to_log = lambda x: np.log10(x) if x > 0 else 0 
-    
-    # source: https://www.astro.princeton.edu/~gk/A403/constants.pdf
-    convert_to_bolometric_luminosity = lambda logL_sun: 4.8 - 2.5*logL_sun
-
+   # source: https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Example_formulae
     uncertainty_prop = lambda uncert, data_point: uncert/(np.log(10)*data_point)
 
 class PlottingTools:
@@ -140,12 +137,6 @@ class PlottingTools:
         max_lum=ConversionTools.convert_to_log(command_lum['max_lum_solar_lum'])
         label=command_lum['label']
 
-    
-        #convert to log scale
-        if command_lum['source']=='MIST':
-            min_lum=ConversionTools.convert_to_bolometric_luminosity(min_lum)
-            max_lum=ConversionTools.convert_to_bolometric_luminosity(max_lum)
-
         # get min and max of x axis
         x_min, x_max = x_limits
         # fill in between min and max luminosity
@@ -167,6 +158,10 @@ class ProcessingTools:
             age=df['col1'] # AGE in years
             lum=df['col7'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity
             temp=df['col12'] # LOG EFFECTIVE TEMPERATURE in Kelvin
+            print("MIST", len(age), len(lum), len(temp))
+            print("LUM", min(lum),max(lum))
+            print("TEMP", min(temp),max(temp))
+            print("AGE", min(age), max(age))
 
         elif source=='BHAC':
             # for parameter descriptions refer to BHAC15_tracks+structure.txt in the respective track directory
@@ -174,9 +169,13 @@ class ProcessingTools:
             df=pd.read_csv(f"{directory}/BHAC15-M{betweenMandp}p{afterp:0<3}.txt", sep='\s+')
             df_new=df.drop(['Rrad','k2conv','k2rad'],axis=1)
             df_new.columns=['Mass (solar)','log t (yr)','Teff (K)','log(L/L_sun)','log g','R/Rs','Log(Li/Li0)','log Tc','log ROc','Mrad','Rrad','k2conv','k2rad']
-            age=10**df_new['log t (yr)']
-            lum=df_new['log(L/L_sun)']
-            temp=np.log10(df_new['Teff (K)'])
+            age=10**df_new['log t (yr)'] # AGE in years 
+            lum=df_new['log(L/L_sun)'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity 
+            temp=np.log10(df_new['Teff (K)']) # LOG EFFECTIVE TEMPERATURE in Kelvin 
+            print("BHAC", len(age), len(lum), len(temp))
+            print("LUM", min(lum),max(lum))
+            print("TEMP", min(temp),max(temp))
+            print("AGE", min(age), max(age))
 
         elif source=='Feiden Magnetic':
             ProcessingTools.rename_Feiden_Magnetic_data(directory)
@@ -194,29 +193,21 @@ class ProcessingTools:
                 usecols=range(len(columns)),  
                 engine='python'
             )
-            df.columns=columns
-            age=df['age']*10**9
-            lum=df['logL_Lsun']
-            temp=df['log_Teff']
+            df.columns=columns # to check - assumed age was in MYRs
+            age=df['age']*10**9 # AGE in years 
+            lum=df['logL_Lsun'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity 
+            temp=df['log_Teff'] # LOG EFFECTIVE TEMPERATURE in Kelvin
+            print("FM", len(age), len(lum), len(temp))
+            print("LUM", min(lum),max(lum))
+            print("TEMP", min(temp),max(temp))
+            print("AGE", min(age), max(age))
 
         elif source=='Feiden Non-Magnetic':
 
             columns = [
-                "Age (yrs)",
-                "Log T",
-                "Log g", 
-                "Log L", 
-                "Log R",
-                "Y_core",
-                "Z_core",
-                "(Z/X)_surf",
-                "A(Li)",
-                "L_H",  
-                "k2",      
-                "B_tach", 
-                "u_conv",
-                "t_conv"
-            ]
+                        "Age (yrs)", "Log T", "Log g", "Log L", "Log R", "Y_core", "Z_core", "(Z/X)_surf",  "A(Li)",
+                        "Li_H",  "k2", "B_tach", "u_conv", "t_conv"
+                ]
 
             df = pd.read_csv(
                 f"{directory}/m{int(mass*1000):0>4}_GS98_p000_p0_y28_mlt1.884.trk",
@@ -227,10 +218,14 @@ class ProcessingTools:
                 engine='python'
             )
         
-            df.columns = columns
-            age=df["Age (yrs)"]
-            lum=df['Log L']
-            temp=df['Log T']
+            df.columns = columns # to check - assumed log L being in solar luminsoities and temp in Kelvin 
+            age=df["Age (yrs)"] # AGE in years 
+            lum=df['Log L'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity  
+            temp=df['Log T'] # LOG EFFECTIVE TEMPERATURE in Kelvin
+            print("FNM", len(age), len(lum), len(temp))
+            print("LUM", min(lum),max(lum))
+            print("TEMP", min(temp),max(temp))
+            print("AGE", min(age), max(age))
 
         elif source=='PARSEC1.2S':
             ProcessingTools.rename_PARSEC1p2S_data(directory)
@@ -238,10 +233,13 @@ class ProcessingTools:
             integer_mass=f"{str(mass).split('.')[0]:0>3}"
             fractional_mass=f"{str(mass).split('.')[1]:0<3}"
             df=pd.read_csv(f"{directory}/{file_prefix}M{integer_mass}.{fractional_mass}.DAT", sep='\s+')
-            age=df['AGE']
-            temp=df['LOG_TE']
-            lum=df['LOG_L']
-
+            age=df['AGE'] # AGE in years 
+            temp=df['LOG_TE'] # LOG EFFECTIVE TEMPERATURE in Kelvin
+            lum=df['LOG_L'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity  
+            print("P1.2S", len(age), len(lum), len(temp))
+            print("LUM", min(lum),max(lum))
+            print("TEMP", min(temp),max(temp))
+            print("AGE", min(age), max(age))
         return age, lum, temp
     
     def rename_PARSEC1p2S_data(directory):
@@ -252,7 +250,7 @@ class ProcessingTools:
             old_path=os.path.join(directory,file)
             new_file_name=os.path.join(directory,f"{beforeM}M{before_decimal:0>3}.{after_decimal}")
             os.rename(old_path,new_file_name)
-            print(f"Renamed {old_path} to {new_file_name}")
+            #print(f"Renamed {old_path} to {new_file_name}")
         return 
 
     def rename_Feiden_Magnetic_data(directory):
@@ -263,34 +261,37 @@ class ProcessingTools:
                 if new_name != filename:
                     old_path = os.path.join(directory, filename)
                     new_path = os.path.join(directory, new_name)
-                    print(f"Renaming: {filename} → {new_name}")
+                    # print(f"Renaming: {filename} → {new_name}")
                     os.rename(old_path, new_path)
         return 
 
 
-def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, directory, source, sample_file, step_size=0.001):
+def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, directory, source, sample_file, step_size=0.0000000001):
     """Interpolates between two sets of evolutionary track data."""    
     age_lower, lum_lower, temp_lower=ProcessingTools.read_track_data(directory, lower_bound_padded, source, sample_file)
-    age_upper, lum_upper, temp_upper=ProcessingTools.read_track_data(directory, upper_bound_padded, source, sample_file)
+    #age_upper, lum_upper, temp_upper=ProcessingTools.read_track_data(directory, upper_bound_padded, source, sample_file)
 
     target_step=0
-    total_steps=0
+    #total_steps=0
     mass_choice_float=padded_mass_choice
     lower_mass_bound_float=lower_bound_padded
-    upper_mass_bound_float=upper_bound_padded
+    #upper_mass_bound_float=upper_bound_padded
 
-    while lower_mass_bound_float+total_steps < upper_mass_bound_float:
-        if lower_mass_bound_float+target_step < mass_choice_float:
-            # keep track of number of steps to user selected mass
-            target_step+=step_size
-        # keeps track of number of steps to upper bound
-        total_steps+=step_size
-    target_idx=math.ceil(target_step/step_size)-1 # -1 b/c 0 indexed
-    num_steps=math.ceil(total_steps/step_size) # no need to subtract because ends when equal to upper mass bound
-    print(f"WARNING: num_steps: {num_steps}; target_idx: {target_idx}.")
-    temp_interp = [np.linspace(tl, th, num_steps)[target_idx] for tl, th in zip(temp_lower, temp_upper)]
-    lum_interp = [np.linspace(ll, lh, num_steps)[target_idx] for ll, lh in zip(lum_lower, lum_upper)]
-    age_interp = [np.linspace(al, ah, num_steps)[target_idx] for al, ah in zip(age_lower, age_upper)]
+    # keep track of number of steps to user selected mass
+    target_step=(mass_choice_float-lower_mass_bound_float)//step_size
+    # keeps track of number of steps to upper bound
+    #total_steps=(upper_mass_bound_float-lower_mass_bound_float)//step_size
+    #target_idx=target_step//step_size # -1 b/c 0 indexed
+    #num_steps=math.ceil(total_steps/step_size) # no need to subtract because ends when equal to upper mass bound
+    #print(f"WARNING: num_steps: {num_steps}; target_idx: {target_idx}.")
+    #temp_interp = [np.linspace(tl, th, num_steps)[target_idx] for tl, th in zip(temp_lower, temp_upper)]
+    #lum_interp = [np.linspace(ll, lh, num_steps)[target_idx] for ll, lh in zip(lum_lower, lum_upper)]
+    #age_interp = [np.linspace(al, ah, num_steps)[target_idx] for al, ah in zip(age_lower, age_upper)]
+    # fixes issue where because we didn't have enough precision in our interpolation step size, we were 
+    # getting the same upper and lower mass tracks at the time of plotting
+    temp_interp = [tl+target_step*step_size for tl in temp_lower]
+    lum_interp = [ll+target_step*step_size for ll in lum_lower]
+    age_interp = [al+target_step*step_size for al in age_lower]
     return temp_interp, lum_interp, age_interp
 
 def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints, command, sample_file):
@@ -298,7 +299,6 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     source=command['source']
     # Check if min_interp_dec exists in files
     if padded_mass_choice in file_ints_str:
-        print(11, padded_mass_choice)
         print(f"WARNING: Interpolation not needed for selected mass as file is available: {int(padded_mass_choice*100):0>5}M.track.eep")
         age_arr,lum_arr,temp_arr=ProcessingTools.read_track_data(directory, padded_mass_choice, source, sample_file)
         
@@ -313,7 +313,7 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
             i-=2
         else: 
             i-=1 
-        print(22,padded_mass_choice, file_ints_str[i], file_ints_str[i+1])
+        # TODO: should generalize code so that tells user "mass is out of range of dataset" 
         temp_arr,lum_arr,age_arr= interpolate_between_tracks(padded_mass_choice, lower_bound_padded=file_ints_str[i], upper_bound_padded=file_ints_str[i+1], directory=directory, source=source, sample_file=sample_file)
 
     # only use the lower mass data to set the age range as they live longer than high mass stars
@@ -343,12 +343,31 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     
     # TODO: could build interpolator using the entire evolutionary track and then just evaluate at the user specified age range
     # but this would be more computationally expensive than just filtering the arrays 
-    age_arr, temp_arr, lum_arr = np.array(age_arr), np.array(temp_arr), np.array(lum_arr)
-    mask = np.where((age_arr >= user_age_min) & (age_arr <= user_age_max))
-    temp_arr = temp_arr[mask]
-    lum_arr = lum_arr[mask]
-    age_arr = age_arr[mask]
+    original_age_arr, original_temp_arr, original_lum_arr = np.array(age_arr), np.array(temp_arr), np.array(lum_arr)
+    mask = np.where((original_age_arr >= user_age_min) & (original_age_arr <= user_age_max))
+    temp_arr = original_temp_arr[mask]
+    lum_arr = original_lum_arr[mask]
+    age_arr = original_age_arr[mask]
+    while len(age_arr) < 3: 
+        age_arr, temp_arr, lum_arr = broaden_filtered_data(original_age_arr, original_temp_arr, original_lum_arr, age_arr, temp_arr, lum_arr)
+    print("get_track_data, Filtered DATA: ", len(age_arr), len(lum_arr), len(temp_arr))
     return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
+
+def broaden_filtered_data(original_age_arr, original_temp_arr, original_lum_arr, age_arr, temp_arr, lum_arr):
+    """broadens filtered data to ensure enough points for Akima interpolation"""
+    print(f"WARNING: Too few data points ({len(age_arr)}) in the selected age range. Broadening age range on each side.")
+    # get the data points neighboring the filtered data
+    left_idx = np.where(original_age_arr == age_arr[0])[0][0]
+    if left_idx > 0: 
+        left_idx-=1
+    right_idx = np.where(original_age_arr == age_arr[-1])[0][0]
+    if right_idx < len(original_age_arr)-1:
+        right_idx+=1
+    print(left_idx, right_idx, len(original_age_arr))
+    age_arr = np.sort(list({*age_arr, original_age_arr[left_idx], original_age_arr[right_idx]}))
+    temp_arr = np.sort(list({*temp_arr, original_temp_arr[left_idx], original_temp_arr[right_idx]}))
+    lum_arr = np.sort(list({*lum_arr, original_lum_arr[left_idx], original_lum_arr[right_idx]}))
+    return age_arr, temp_arr, lum_arr
 
 def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linestyle='-', debug=False):
     """Main function to plot evolutionary track with EEP interpolation."""
@@ -367,7 +386,7 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
             file_ints_str = [float(file.split('M')[1].split('p')[0]+'.'+file.split('p')[1].split('.txt')[0]) for file in only_data_files]
     elif source=='PARSEC1.2S':
             file_ints_str = [float(file.split('M')[1].split('.DAT', maxsplit=1)[0]) for file in only_data_files]
-            print(file_ints_str)
+            # print(file_ints_str)
     elif source=='Feiden-Magnetic' or 'Feiden-Non-Magnetic':
         file_ints_str = [float(file[1:5])/1000 for file in only_data_files]
     
@@ -394,9 +413,16 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     
     padded_min_interp_dec=min_interp_dec
     padded_max_interp_dec=max_interp_dec
-    
     min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,directory,age_constraints=[0,0], command=command, sample_file=only_data_files[0])
     max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
+    print("data before akima: ", min(min_age_arr), min(min_lum_arr), min(min_temp_arr))
+    print("data before akima: ", min(max_age_arr), min(max_lum_arr), min(max_temp_arr))
+    #fig1, ax1 = plt.subplots(figsize=(10, 8))
+    
+    #ax1.scatter(min_temp_arr, min_lum_arr, color='blue', s=5)
+    #ax1.scatter(max_temp_arr, max_lum_arr, color='red', s=5)
+    #ax1.set_title(source + " Evolutionary Track Interpolation Check")
+    #plt.show()
     
     # use age arrays to define new age grid    
     common_age_grid = np.linspace(max(min_age_arr[0], max_age_arr[0]), min(min_age_arr[-1], max_age_arr[-1]), num=500)
@@ -411,21 +437,24 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
 
     T1_new, L1_new = Akima_min_temp(common_age_grid), Akima_min_lum(common_age_grid)
     T2_new, L2_new = Akima_max_temp(common_age_grid), Akima_max_lum(common_age_grid)
-
-    lower_bound_label = command['lower_bound_dynamical_mass_label']+f" {source}"
-    upper_bound_label = command['upper_bound_dynamical_mass_label']+f" {source}"
+    print("plotted data: ", min(common_age_grid), min(L1_new), min(T1_new))
+    print("plotted data: ", min(common_age_grid), min(L2_new), min(T2_new))
+    print()
+    
+    lower_bound_label = f" {source}"
     ax.plot(T1_new, L1_new, color=color_map[command['source']], label=lower_bound_label, lw=3)
-    ax.plot(T2_new, L2_new, color=color_map[command['source']], label=upper_bound_label, lw=3)
+    ax.plot(T2_new, L2_new, color=color_map[command['source']], lw=3)
     
     # Draw equal-age connecting lines
     previous_age = common_age_grid[0]
     previous_idx = 0 
+    
     for i, age in enumerate(common_age_grid):
-        plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.4)
+        plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
         # highlight every 700,000 years
         if common_age_grid[i] - previous_age >= 700_000 and i - previous_idx >= 3:
             #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
-            plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
+            #plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
             previous_age = common_age_grid[i]
             previous_idx = i
     return fig, ax

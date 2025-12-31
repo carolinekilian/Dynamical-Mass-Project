@@ -45,7 +45,10 @@ def run(interactive, commands={}, color_map=color_map):
     else:
         # plot all your ETs
         for command_et in commands.get('1',[]):
-            
+            if command_et['source'] == 'BHAC' and command_et['lower_bound_dynamical_mass_solar_mass'] > 1.4:
+                print("BHAC tracks above 1.4 solar masses are not available. Skipping this track.")
+                continue 
+
             for command_lum in commands.get('4',[]):
                 command_lum['source']=command_et['source']
             for command_pp in commands.get('3', {}).get('pp', []):
@@ -77,55 +80,38 @@ if __name__ == "__main__":
     # TODO: update interactive mode so that it can highlight regions of constant temp and lum 
     # run(interactive=True, commands={})
     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
-    lower_mass = 1.865852
-    upper_mass = 1.911238
-    lower_age = 14e6
-    upper_age = 18e6
+    lower_mass = 1.499684836
+    upper_mass = 1.513561248
+    lower_age = 0
+    upper_age = 30e6
 
     commands={
                     '1': [ # the dynamical mass outputs go here
                         {   'source': 'PARSEC1.2S',
-                            'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.001Y0.25',
+                            'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.0001Y0.249',
                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
-                            'lower_bound_dynamical_mass_label': f"{lower_mass} " +r'$M_{\odot}$',
                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
-                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
                             'min_age_years': lower_age,
                             'max_age_years': upper_age,
                         },  
                         {   'source': 'Feiden Non-Magnetic',
                             'path_to_untarred_ET':'all_GS98_p000_p0_y28_mlt1.884 - Feiden Non-Magnetic',
                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
-                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+ r'$M_{\odot}$',
                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
-                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
                             'min_age_years': lower_age,
                             'max_age_years': upper_age,
                         },  
-                        {   'source': 'Feiden Magnetic',
+                        {   'source': 'Feiden Magnetic',  
                             'path_to_untarred_ET':'all__GS98_p000_p0_y28_mlt1.884_Beq - Feiden Magnetic',
                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
-                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
-                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
                             'min_age_years': lower_age,
                             'max_age_years': upper_age,
                         },  
-                        {   'source': 'BHAC',
-                            'path_to_untarred_ET':'BHAC15',
-                            'lower_bound_dynamical_mass_solar_mass': lower_mass,
-                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
-                            'upper_bound_dynamical_mass_solar_mass': upper_mass,
-                            'upper_bound_dynamical_mass_label': f"{upper_mass} "+r'$M_{\odot}$',
-                            'min_age_years': lower_age,
-                            'max_age_years': upper_age,
-                        },  
-                        {   'source': 'MIST',
+                        {   'source': 'MIST',  
                             'path_to_untarred_ET':'MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS',
                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
-                            'lower_bound_dynamical_mass_label': f"{lower_mass} "+r'$M_{\odot}$',
                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
-                            'upper_bound_dynamical_mass_label': f"{upper_mass} " +r'$M_{\odot}$',
                             'min_age_years': lower_age,
                             'max_age_years': upper_age,
                         }   
@@ -142,12 +128,26 @@ if __name__ == "__main__":
                     '3': { # spectroscopic and photometric points go here
                         'pp': [
                             {   
-                                'temperature_kelvin':8250,
-                                'temperature_kelvin_err':150,
-                                'luminosity_solar_lum':11.24,
-                                'luminosity_solar_lum_err':0.41,
-                                'name':'Moor 2025'
+                                'temperature_kelvin':7980,
+                                'temperature_kelvin_err':0,
+                                'luminosity_solar_lum':8.46,
+                                'luminosity_solar_lum_err':0,
+                                'name':'Cataldi et al. (2023)'
                             },  
+                            {
+                                'temperature_kelvin':11250,
+                                'temperature_kelvin_err':26,
+                                'luminosity_solar_lum':24.4,
+                                'luminosity_solar_lum_err':0.2,
+                                'name':'Gaia Collaboration et al. (2023)'
+                            }, 
+                            {
+                                'temperature_kelvin':8382,
+                                'temperature_kelvin_err':99,
+                                'luminosity_solar_lum':7.585,
+                                'luminosity_solar_lum_err':0.017,
+                                'name':'Zhang et al. (2023)'
+                            }, 
                         ],  
                     },  
                     '4': { # lines of constant temperature and luminosity go here
@@ -176,7 +176,7 @@ if __name__ == "__main__":
                         #     }   
                         # ] 
                     },  
-                'title': 'HD155853'
+                'title': f'HD32297: [{lower_mass}-{upper_mass}] '+r'$M_{\odot}$'
                 }   
     # testing interactive
     run(interactive=False, commands=commands, color_map=color_map)
