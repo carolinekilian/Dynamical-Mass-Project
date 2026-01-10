@@ -5,9 +5,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from fastnumbers import isfloat, isint
 from astropy.io import ascii
-from scipy.interpolate import Akima1DInterpolator
+from scipy.interpolate import Akima1DInterpolator, CubicSpline
 import matplotlib as mpl
 import re 
+from sklearn.isotonic import IsotonicRegression
+
 
 class ValidationTools: 
     
@@ -107,12 +109,17 @@ class PlottingTools:
         return color, available_colors
     
     def plot_format(fig, ax, title, fontsize=30):
+
         plt.title(title, fontsize=fontsize)
         plt.xlabel(r'log ($T_{eff}$) [K]', fontsize=fontsize)
         plt.ylabel(r'log ($L_{bol}/L_{\odot}$)', fontsize=fontsize)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
+        plt.xticks(fontsize=20)
+        plt.yticks(fontsize=20)
         plt.legend()
+        ax.legend(
+        fontsize=20,      # Set the font size (can be int/float or string like 'large')
+        markerscale=2,  # Scale the markers in the legend (1.5 makes them 50% larger)
+        )
         plt.gca().invert_xaxis()
         plt.grid()
         plt.show()
@@ -143,6 +150,82 @@ class PlottingTools:
         ax.fill_between([x_min, x_max], min_lum, max_lum, color='lightgray', alpha=0.5, label=label)
         return fig, ax
 
+class InterpolatorTools:
+
+    def make_strictly_monotonic(x, increasing=True, eps=1e-6):
+        ir = IsotonicRegression(increasing=increasing, out_of_bounds='clip')
+        y = ir.fit_transform(np.arange(len(x)), x)
+
+        # enforce strictness
+        for i in range(1, len(y)):
+            if increasing:
+                if y[i] <= y[i-1]:
+                    y[i] = y[i-1] + eps
+            else:
+                if y[i] >= y[i-1]:
+                    y[i] = y[i-1] - eps
+
+        return y
+    
+    def find_monotonic_segments(age):
+        """Find segments where the age is monotonically increasing or decreasing."""
+        segments = []
+        start_idx = 0
+        age = InterpolatorTools.make_strictly_monotonic(age, increasing=True, eps=1e-6)
+        # Determine sign of derivative
+        dT = np.diff(age)
+        sign_prev = np.sign(dT[0])
+        for i in range(1, len(dT)):
+            sign_now = np.sign(dT[i])
+           
+            if sign_now != sign_prev:
+                segments.append(slice(start_idx, i + 1))
+                start_idx = i
+
+            sign_prev = sign_now
+        segments.append(slice(start_idx, len(age)))
+        return segments, age
+
+    def make_piecewise_interpolator(age, values, method='cubic'):
+        """Create piecewise interpolators for segments of monotonic data
+
+            basically I initially tried fitting a spline to the entire evolutionary track
+            but it failed because the temperature and luminosity are not monotonic functions of age
+            so I broke the data into segments where the function is monotonic and fit splines to each segment
+        """
+        segments, age = InterpolatorTools.find_monotonic_segments(age)
+        interpolators = []
+        for seg in segments:
+            t_seg, v_seg = age[seg], values[seg]
+            # Need at least 3 points for cubic spline or Akima
+            if len(t_seg) < 3:
+                continue
+            if method == 'cubic':
+                interpolators.append(CubicSpline(t_seg, v_seg))
+            elif method == 'akima':
+                interpolators.append(Akima1DInterpolator(t_seg, v_seg))
+            else:
+                raise ValueError("Method must be 'cubic' or 'akima'")
+        segment_bounds = [(age[s.start], age[s.stop - 1]) for s in segments]
+        return segment_bounds, interpolators
+
+    def piecewise_eval(age_query, segment_bounds, interpolators):
+        result = np.empty_like(age_query)
+        for i, t in enumerate(age_query):
+            found = False
+            for (tmin, tmax), interp in zip(segment_bounds, interpolators):
+                if tmin <= t <= tmax:
+                    result[i] = interp(t)
+                    found = True
+                    break
+            if not found:
+                # if not in any segment, use nearest endpoint
+                if t < segment_bounds[0][0]:
+                    result[i] = interpolators[0](t)
+                else:
+                    result[i] = interpolators[-1](t)
+        return result
+    
 class ProcessingTools:
     def file_cleanup(files):
         """Cleans up list of files by removing README and system files."""
@@ -158,10 +241,6 @@ class ProcessingTools:
             age=df['col1'] # AGE in years
             lum=df['col7'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity
             temp=df['col12'] # LOG EFFECTIVE TEMPERATURE in Kelvin
-            print("MIST", len(age), len(lum), len(temp))
-            print("LUM", min(lum),max(lum))
-            print("TEMP", min(temp),max(temp))
-            print("AGE", min(age), max(age))
 
         elif source=='BHAC':
             # for parameter descriptions refer to BHAC15_tracks+structure.txt in the respective track directory
@@ -172,10 +251,6 @@ class ProcessingTools:
             age=10**df_new['log t (yr)'] # AGE in years 
             lum=df_new['log(L/L_sun)'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity 
             temp=np.log10(df_new['Teff (K)']) # LOG EFFECTIVE TEMPERATURE in Kelvin 
-            print("BHAC", len(age), len(lum), len(temp))
-            print("LUM", min(lum),max(lum))
-            print("TEMP", min(temp),max(temp))
-            print("AGE", min(age), max(age))
 
         elif source=='Feiden Magnetic':
             ProcessingTools.rename_Feiden_Magnetic_data(directory)
@@ -197,10 +272,6 @@ class ProcessingTools:
             age=df['age']*10**9 # AGE in years 
             lum=df['logL_Lsun'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity 
             temp=df['log_Teff'] # LOG EFFECTIVE TEMPERATURE in Kelvin
-            print("FM", len(age), len(lum), len(temp))
-            print("LUM", min(lum),max(lum))
-            print("TEMP", min(temp),max(temp))
-            print("AGE", min(age), max(age))
 
         elif source=='Feiden Non-Magnetic':
 
@@ -222,10 +293,6 @@ class ProcessingTools:
             age=df["Age (yrs)"] # AGE in years 
             lum=df['Log L'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity  
             temp=df['Log T'] # LOG EFFECTIVE TEMPERATURE in Kelvin
-            print("FNM", len(age), len(lum), len(temp))
-            print("LUM", min(lum),max(lum))
-            print("TEMP", min(temp),max(temp))
-            print("AGE", min(age), max(age))
 
         elif source=='PARSEC1.2S':
             ProcessingTools.rename_PARSEC1p2S_data(directory)
@@ -236,10 +303,7 @@ class ProcessingTools:
             age=df['AGE'] # AGE in years 
             temp=df['LOG_TE'] # LOG EFFECTIVE TEMPERATURE in Kelvin
             lum=df['LOG_L'] # LOG BOLOMETRIC LUMINOSITY in solar luminosity  
-            print("P1.2S", len(age), len(lum), len(temp))
-            print("LUM", min(lum),max(lum))
-            print("TEMP", min(temp),max(temp))
-            print("AGE", min(age), max(age))
+            
         return age, lum, temp
     
     def rename_PARSEC1p2S_data(directory):
@@ -265,33 +329,32 @@ class ProcessingTools:
                     os.rename(old_path, new_path)
         return 
 
-
-def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, directory, source, sample_file, step_size=0.0000000001):
+def interpolate_between_tracks(padded_mass_choice, lower_bound_padded, upper_bound_padded, directory, source, sample_file):
     """Interpolates between two sets of evolutionary track data."""    
     age_lower, lum_lower, temp_lower=ProcessingTools.read_track_data(directory, lower_bound_padded, source, sample_file)
-    #age_upper, lum_upper, temp_upper=ProcessingTools.read_track_data(directory, upper_bound_padded, source, sample_file)
+    age_upper, lum_upper, temp_upper=ProcessingTools.read_track_data(directory, upper_bound_padded, source, sample_file)
 
-    target_step=0
-    #total_steps=0
-    mass_choice_float=padded_mass_choice
-    lower_mass_bound_float=lower_bound_padded
-    #upper_mass_bound_float=upper_bound_padded
+    interpolator='akima'  # 'cubic' or 'akima'
+    bounds_temp_lower, interps_temp_lower = InterpolatorTools.make_piecewise_interpolator(age_lower, temp_lower, method=interpolator)
+    bounds_lum_lower, interps_lum_lower = InterpolatorTools.make_piecewise_interpolator(age_lower, lum_lower, method=interpolator)
+    bounds_temp_upper, interps_temp_upper = InterpolatorTools.make_piecewise_interpolator(age_upper, temp_upper, method=interpolator)
+    bounds_lum_upper, interps_lum_upper = InterpolatorTools.make_piecewise_interpolator(age_upper, lum_upper, method=interpolator)
 
-    # keep track of number of steps to user selected mass
-    target_step=(mass_choice_float-lower_mass_bound_float)//step_size
-    # keeps track of number of steps to upper bound
-    #total_steps=(upper_mass_bound_float-lower_mass_bound_float)//step_size
-    #target_idx=target_step//step_size # -1 b/c 0 indexed
-    #num_steps=math.ceil(total_steps/step_size) # no need to subtract because ends when equal to upper mass bound
-    #print(f"WARNING: num_steps: {num_steps}; target_idx: {target_idx}.")
-    #temp_interp = [np.linspace(tl, th, num_steps)[target_idx] for tl, th in zip(temp_lower, temp_upper)]
-    #lum_interp = [np.linspace(ll, lh, num_steps)[target_idx] for ll, lh in zip(lum_lower, lum_upper)]
-    #age_interp = [np.linspace(al, ah, num_steps)[target_idx] for al, ah in zip(age_lower, age_upper)]
-    # fixes issue where because we didn't have enough precision in our interpolation step size, we were 
-    # getting the same upper and lower mass tracks at the time of plotting
-    temp_interp = [tl+target_step*step_size for tl in temp_lower]
-    lum_interp = [ll+target_step*step_size for ll in lum_lower]
-    age_interp = [al+target_step*step_size for al in age_lower]
+    # Define a common age grid based on the overlapping age range
+    common_age_grid = np.linspace(max(min(age_lower), min(age_upper)), min(max(age_lower), max(age_upper)), num=1_000)
+
+    # Evaluate the interpolators on the common age grid
+    T_lower_new = InterpolatorTools.piecewise_eval(common_age_grid, bounds_temp_lower, interps_temp_lower)
+    L_lower_new = InterpolatorTools.piecewise_eval(common_age_grid, bounds_lum_lower, interps_lum_lower)
+    T_upper_new = InterpolatorTools.piecewise_eval(common_age_grid, bounds_temp_upper, interps_temp_upper)
+    L_upper_new = InterpolatorTools.piecewise_eval(common_age_grid, bounds_lum_upper, interps_lum_upper)
+
+    # Linear interpolation between the two tracks based on mass
+    mass_fraction = (padded_mass_choice - lower_bound_padded) / (upper_bound_padded - lower_bound_padded)
+    temp_interp = T_lower_new + mass_fraction * (T_upper_new - T_lower_new)
+    lum_interp = L_lower_new + mass_fraction * (L_upper_new - L_lower_new)
+    age_interp = common_age_grid
+
     return temp_interp, lum_interp, age_interp
 
 def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints, command, sample_file):
@@ -341,33 +404,17 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     else: 
         raise ValueError(f"age_constraints not an array of length two: {age_constraints}")
     
-    # TODO: could build interpolator using the entire evolutionary track and then just evaluate at the user specified age range
-    # but this would be more computationally expensive than just filtering the arrays 
     original_age_arr, original_temp_arr, original_lum_arr = np.array(age_arr), np.array(temp_arr), np.array(lum_arr)
-    mask = np.where((original_age_arr >= user_age_min) & (original_age_arr <= user_age_max))
-    temp_arr = original_temp_arr[mask]
-    lum_arr = original_lum_arr[mask]
-    age_arr = original_age_arr[mask]
-    while len(age_arr) < 3: 
-        age_arr, temp_arr, lum_arr = broaden_filtered_data(original_age_arr, original_temp_arr, original_lum_arr, age_arr, temp_arr, lum_arr)
-    print("get_track_data, Filtered DATA: ", len(age_arr), len(lum_arr), len(temp_arr))
-    return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
+    # fit a cubic spline to the extracted/interpolated data 
+    bounds_temp, temp_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_temp_arr, method='cubic')
+    bounds_lum, lum_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_lum_arr, method='cubic')
 
-def broaden_filtered_data(original_age_arr, original_temp_arr, original_lum_arr, age_arr, temp_arr, lum_arr):
-    """broadens filtered data to ensure enough points for Akima interpolation"""
-    print(f"WARNING: Too few data points ({len(age_arr)}) in the selected age range. Broadening age range on each side.")
-    # get the data points neighboring the filtered data
-    left_idx = np.where(original_age_arr == age_arr[0])[0][0]
-    if left_idx > 0: 
-        left_idx-=1
-    right_idx = np.where(original_age_arr == age_arr[-1])[0][0]
-    if right_idx < len(original_age_arr)-1:
-        right_idx+=1
-    print(left_idx, right_idx, len(original_age_arr))
-    age_arr = np.sort(list({*age_arr, original_age_arr[left_idx], original_age_arr[right_idx]}))
-    temp_arr = np.sort(list({*temp_arr, original_temp_arr[left_idx], original_temp_arr[right_idx]}))
-    lum_arr = np.sort(list({*lum_arr, original_lum_arr[left_idx], original_lum_arr[right_idx]}))
-    return age_arr, temp_arr, lum_arr
+    # build an interpolator using the extracted/interpolated data WITHIN the user defined age range
+    user_age_arr = np.linspace(user_age_min, user_age_max, num=1_000)
+    temp_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_temp, temp_interpolator)
+    lum_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_lum, lum_interpolator)
+    
+    return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
 
 def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linestyle='-', debug=False):
     """Main function to plot evolutionary track with EEP interpolation."""
@@ -386,7 +433,6 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
             file_ints_str = [float(file.split('M')[1].split('p')[0]+'.'+file.split('p')[1].split('.txt')[0]) for file in only_data_files]
     elif source=='PARSEC1.2S':
             file_ints_str = [float(file.split('M')[1].split('.DAT', maxsplit=1)[0]) for file in only_data_files]
-            # print(file_ints_str)
     elif source=='Feiden-Magnetic' or 'Feiden-Non-Magnetic':
         file_ints_str = [float(file[1:5])/1000 for file in only_data_files]
     
@@ -415,47 +461,23 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     padded_max_interp_dec=max_interp_dec
     min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,directory,age_constraints=[0,0], command=command, sample_file=only_data_files[0])
     max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
-    print("data before akima: ", min(min_age_arr), min(min_lum_arr), min(min_temp_arr))
-    print("data before akima: ", min(max_age_arr), min(max_lum_arr), min(max_temp_arr))
-    #fig1, ax1 = plt.subplots(figsize=(10, 8))
-    
-    #ax1.scatter(min_temp_arr, min_lum_arr, color='blue', s=5)
-    #ax1.scatter(max_temp_arr, max_lum_arr, color='red', s=5)
-    #ax1.set_title(source + " Evolutionary Track Interpolation Check")
-    #plt.show()
-    
-    # use age arrays to define new age grid    
-    common_age_grid = np.linspace(max(min_age_arr[0], max_age_arr[0]), min(min_age_arr[-1], max_age_arr[-1]), num=500)
-
-    # this partitions our evolutionary tracks and fits cubic splines to each parition
-    # essentially it creates a piecewise function to model the evolutionary track allowing us to take a discrete 
-    # evolutionary track and turn it into a continous function
-    Akima_min_temp = Akima1DInterpolator(min_age_arr, min_temp_arr)
-    Akima_min_lum = Akima1DInterpolator(min_age_arr, min_lum_arr)
-    Akima_max_temp = Akima1DInterpolator(max_age_arr, max_temp_arr)
-    Akima_max_lum = Akima1DInterpolator(max_age_arr, max_lum_arr)
-
-    T1_new, L1_new = Akima_min_temp(common_age_grid), Akima_min_lum(common_age_grid)
-    T2_new, L2_new = Akima_max_temp(common_age_grid), Akima_max_lum(common_age_grid)
-    print("plotted data: ", min(common_age_grid), min(L1_new), min(T1_new))
-    print("plotted data: ", min(common_age_grid), min(L2_new), min(T2_new))
-    print()
     
     lower_bound_label = f" {source}"
-    ax.plot(T1_new, L1_new, color=color_map[command['source']], label=lower_bound_label, lw=3)
-    ax.plot(T2_new, L2_new, color=color_map[command['source']], lw=3)
+    ax.plot(min_temp_arr, min_lum_arr, lw=3, color=color_map[command['source']],label=lower_bound_label)
+    ax.plot(max_temp_arr, max_lum_arr, lw=3, color=color_map[command['source']])
     
     # Draw equal-age connecting lines
-    previous_age = common_age_grid[0]
+    previous_age = min_age_arr[0]
     previous_idx = 0 
     
-    for i, age in enumerate(common_age_grid):
-        plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
+    for i, age in enumerate(min_age_arr):
+        
+        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], '--', alpha=0.8, color=color_map[command['source']])
         # highlight every 700,000 years
-        if common_age_grid[i] - previous_age >= 700_000 and i - previous_idx >= 3:
+        if age - previous_age >= 700_000 and i - previous_idx >= 3:
             #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
             #plt.plot([T1_new[i], T2_new[i]], [L1_new[i], L2_new[i]], '--', alpha=0.8, color=color_map[command['source']])
-            previous_age = common_age_grid[i]
+            previous_age = age
             previous_idx = i
     return fig, ax
 

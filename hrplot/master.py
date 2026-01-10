@@ -80,10 +80,10 @@ if __name__ == "__main__":
     # TODO: update interactive mode so that it can highlight regions of constant temp and lum 
     # run(interactive=True, commands={})
     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
-    lower_mass = 1.499684836
-    upper_mass = 1.513561248
-    lower_age = 0
-    upper_age = 30e6
+    lower_mass = 10**(0.192-0.012)
+    upper_mass = 10**(0.192+0.010)
+    lower_age = 14e6
+    upper_age = 18e6
 
     commands={
                     '1': [ # the dynamical mass outputs go here
@@ -128,26 +128,26 @@ if __name__ == "__main__":
                     '3': { # spectroscopic and photometric points go here
                         'pp': [
                             {   
-                                'temperature_kelvin':7980,
-                                'temperature_kelvin_err':0,
-                                'luminosity_solar_lum':8.46,
-                                'luminosity_solar_lum_err':0,
-                                'name':'Cataldi et al. (2023)'
+                                'temperature_kelvin':7500,
+                                'temperature_kelvin_err':100,
+                                'luminosity_solar_lum':8.92,
+                                'luminosity_solar_lum_err':0.09,
+                                'name':'Matra et al. (2020)'
                             },  
-                            {
-                                'temperature_kelvin':11250,
-                                'temperature_kelvin_err':26,
-                                'luminosity_solar_lum':24.4,
-                                'luminosity_solar_lum_err':0.2,
-                                'name':'Gaia Collaboration et al. (2023)'
-                            }, 
-                            {
-                                'temperature_kelvin':8382,
-                                'temperature_kelvin_err':99,
-                                'luminosity_solar_lum':7.585,
-                                'luminosity_solar_lum_err':0.017,
-                                'name':'Zhang et al. (2023)'
-                            }, 
+                            # {
+                            #     'temperature_kelvin':11250,
+                            #     'temperature_kelvin_err':26,
+                            #     'luminosity_solar_lum':24.4,
+                            #     'luminosity_solar_lum_err':0.2,
+                            #     'name':'Gaia Collaboration et al. (2023)'
+                            # }, 
+                            # {
+                            #     'temperature_kelvin':8382,
+                            #     'temperature_kelvin_err':99,
+                            #     'luminosity_solar_lum':7.585,
+                            #     'luminosity_solar_lum_err':0.017,
+                            #     'name':'Zhang et al. (2023)'
+                            # }, 
                         ],  
                     },  
                     '4': { # lines of constant temperature and luminosity go here
@@ -176,7 +176,7 @@ if __name__ == "__main__":
                         #     }   
                         # ] 
                     },  
-                'title': f'HD32297: [{lower_mass}-{upper_mass}] '+r'$M_{\odot}$'
+                'title': f'HD131835: [{round(lower_mass, 3)}-{round(upper_mass, 3)}] '+r'$M_{\odot}$'
                 }   
     # testing interactive
     run(interactive=False, commands=commands, color_map=color_map)
