@@ -15,7 +15,7 @@ class ValidationTools:
     
     def get_valid_input(prompt, error_prompt, command, var_type):
         """
-        Helper function to get valid input for x and y points.
+        Helper function to get valid input for x and y points. Used when plotting
         """
         if command:
             value=command[var_type]
@@ -45,6 +45,7 @@ class ValidationTools:
 class ConversionTools:
 
     convert_to_log = lambda x: np.log10(x) if x > 0 else 0 
+
    # source: https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Example_formulae
     uncertainty_prop = lambda uncert, data_point: uncert/(np.log(10)*data_point)
 
@@ -95,8 +96,8 @@ class PlottingTools:
         y_point_err = ConversionTools.uncertainty_prop(y_point_err_r, y_point_r) if y_point_err_r !=0 else 0
         print(f"y_point (log scale): {y_point} ± {y_point_err}")
 
-        ax.scatter([x_point], [y_point], color=color)
-        ax.errorbar([x_point], [y_point], xerr=[x_point_err], yerr=[y_point_err], label=name, color=color, fmt='o')
+        ax.scatter([x_point], [y_point], color=color, s=10)
+        ax.errorbar([x_point], [y_point], xerr=[x_point_err], yerr=[y_point_err], label=name, color=color, fmt='o', markersize=10)
         return fig, ax
 
     def get_unique_color(available_colors, used_colors):
@@ -113,15 +114,25 @@ class PlottingTools:
         plt.title(title, fontsize=fontsize)
         plt.xlabel(r'log ($T_{eff}$) [K]', fontsize=fontsize)
         plt.ylabel(r'log ($L_{bol}/L_{\odot}$)', fontsize=fontsize)
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
+        plt.xticks(fontsize=30)
+        plt.yticks(fontsize=30)
         plt.legend()
         ax.legend(
         fontsize=20,      # Set the font size (can be int/float or string like 'large')
         markerscale=2,  # Scale the markers in the legend (1.5 makes them 50% larger)
         )
         plt.gca().invert_xaxis()
-        plt.grid()
+
+        manager = plt.get_current_fig_manager()
+        manager.full_screen_toggle()
+        # get the system name 
+        system_name = title.split(':', 1)[0]
+        from pathlib import Path
+        save_directory = f'/Users/joshuagrajales/Desktop/hr_collage/{system_name}'
+        Path(save_directory).mkdir(exist_ok=True)
+        plt.savefig(f'{save_directory}/hrplot_{system_name}.pdf', bbox_inches='tight', dpi=600)
+        print(f"Saved file to: {save_directory}")
+        #plt.grid()
         plt.show()
 
     def plot_line_of_constant_temperature(fig, ax, y_limits, command_temp):
@@ -137,6 +148,25 @@ class PlottingTools:
         y_min, y_max = y_limits
         # fill in between min and max temperature
         ax.fill_betweenx([y_min, y_max], min_temp, max_temp, color='lightgray', alpha=0.5, label=label)
+
+        x_mid = (min_temp + max_temp) / 2
+        y_mid = (y_min + y_max) / 2
+        ax.text(
+            x_mid,
+            y_mid,
+            label,
+            rotation=90,
+            ha='center',
+            va='center',
+            fontsize=16,
+            color='dimgray',
+            bbox=dict(
+                boxstyle='round,pad=0.25',
+                facecolor='white',
+                alpha=0.7,
+                edgecolor='none'
+            )
+        )
         return fig, ax
 
     def plot_line_of_constant_luminosity(fig, ax, x_limits, command_lum):
@@ -148,6 +178,26 @@ class PlottingTools:
         x_min, x_max = x_limits
         # fill in between min and max luminosity
         ax.fill_between([x_min, x_max], min_lum, max_lum, color='lightgray', alpha=0.5, label=label)
+
+         # annotate the center of the shaded region
+        x_mid = (x_min + x_max) / 2
+        y_mid = (min_lum + max_lum) / 2
+        ax.text(
+            x_mid,
+            y_mid,
+            label,
+            ha='center',
+            va='center',
+            fontsize=16,
+            color='dimgray',
+            bbox=dict(
+                boxstyle='round,pad=0.25',
+                facecolor='white',
+                alpha=0.7,
+                edgecolor='none'
+            )
+        )
+
         return fig, ax
 
 class InterpolatorTools:
@@ -179,6 +229,9 @@ class InterpolatorTools:
             sign_now = np.sign(dT[i])
            
             if sign_now != sign_prev:
+                print()
+                print("AGE NOT MONOTIC. DEBUG ")
+                print()
                 segments.append(slice(start_idx, i + 1))
                 start_idx = i
 
@@ -186,7 +239,7 @@ class InterpolatorTools:
         segments.append(slice(start_idx, len(age)))
         return segments, age
 
-    def make_piecewise_interpolator(age, values, method='cubic'):
+    def make_piecewise_interpolator(age, values, method='akima'):
         """Create piecewise interpolators for segments of monotonic data
 
             basically I initially tried fitting a spline to the entire evolutionary track
@@ -405,14 +458,24 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
         raise ValueError(f"age_constraints not an array of length two: {age_constraints}")
     
     original_age_arr, original_temp_arr, original_lum_arr = np.array(age_arr), np.array(temp_arr), np.array(lum_arr)
+    print(f"1. Age range ({source}): ", min(original_age_arr), max(original_age_arr))
+    print(f"1. Temperature range ({source}): ", min(original_temp_arr), max(original_temp_arr))
+    print(f"1. Luminosity range ({source}): ", min(original_lum_arr), max(original_lum_arr))
+    print()
+    
     # fit a cubic spline to the extracted/interpolated data 
-    bounds_temp, temp_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_temp_arr, method='cubic')
-    bounds_lum, lum_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_lum_arr, method='cubic')
+    bounds_temp, temp_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_temp_arr, method='akima')
+    bounds_lum, lum_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_lum_arr, method='akima')
 
     # build an interpolator using the extracted/interpolated data WITHIN the user defined age range
     user_age_arr = np.linspace(user_age_min, user_age_max, num=1_000)
     temp_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_temp, temp_interpolator)
     lum_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_lum, lum_interpolator)
+
+    print(f"2. Age range ({source}): ", min(user_age_arr), max(user_age_arr))
+    print(f"2. Temperature range ({source}): ", min(temp_arr), max(temp_arr))
+    print(f"2. Luminosity range ({source}): ", min(lum_arr), max(lum_arr))
+    print()
     
     return temp_arr, lum_arr, age_arr, user_age_min, user_age_max
 
@@ -463,8 +526,8 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
     
     lower_bound_label = f" {source}"
-    ax.plot(min_temp_arr, min_lum_arr, lw=3, color=color_map[command['source']],label=lower_bound_label)
-    ax.plot(max_temp_arr, max_lum_arr, lw=3, color=color_map[command['source']])
+    ax.plot(min_temp_arr, min_lum_arr, lw=5, color=color_map[command['source']],label=lower_bound_label)
+    ax.plot(max_temp_arr, max_lum_arr, lw=5, color=color_map[command['source']])
     
     # Draw equal-age connecting lines
     previous_age = min_age_arr[0]
@@ -472,7 +535,7 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     
     for i, age in enumerate(min_age_arr):
         
-        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], '--', alpha=0.8, color=color_map[command['source']])
+        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], '--', alpha=0.8, color=color_map[command['source']], lw=5)
         # highlight every 700,000 years
         if age - previous_age >= 700_000 and i - previous_idx >= 3:
             #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
