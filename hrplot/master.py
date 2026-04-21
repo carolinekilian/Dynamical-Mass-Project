@@ -31,8 +31,7 @@ def run(interactive, commands={}, color_map=color_map):
 
             if decision == 1:
                 fig, ax = plot_eep(fig, ax, interactive, color_map)
-            elif decision == 2:
-                fig, ax = plot_iso(fig, ax, interactive)
+            
             elif decision == 3:
                 fig, ax = plot_more = input("Would you like to plot a point? (yes or no): ").lower()
                 while plot_more == 'yes':
@@ -49,14 +48,13 @@ def run(interactive, commands={}, color_map=color_map):
                 print("BHAC tracks above 1.4 solar masses are not available. Skipping this track.")
                 continue 
 
-            # for command_lum in commands.get('4',[]):
-            #     command_lum['source']=command_et['source']
             for command_pp in commands.get('3', {}).get('pp', []):
                 command_pp['source']=command_et['source']
                 print(f"Generating {command_pp['source']} track")
             fig, ax = plot_eep(fig, ax, interactive, color_map, command_et)
+
         for command_iso in commands.get('2',[]):
-            fig, ax = plot_iso(fig, ax, interactive,command_iso)
+            print("plot_iso function was removeed it is performed in command 1 trigger!")
         # plot all of your points
         for command_pp in commands.get('3', {}).get('pp', []):
             color, available_colors = PlottingTools.get_unique_color(available_colors, used_colors)
@@ -74,16 +72,15 @@ def run(interactive, commands={}, color_map=color_map):
     
         PlottingTools.plot_format(fig, ax, title=title)
         return
-    
 if __name__ == "__main__":
     # TODO: update interactive mode so that it can highlight regions of constant temp and lum
     # run(interactive=True, commands={})
     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
-    star_name = 'HD 156623'
-    lower_mass = 10**(0.248-0.023)
-    upper_mass = 10**(0.248+0.023)
-    lower_age = 10e6
-    upper_age = 23e6
+    star_name = '49 Ceti'
+    lower_mass = 10**(0.2454-0.0010)
+    upper_mass = 10**(0.2454+0.0010)
+    lower_age = 40e6
+    upper_age = 50e6
 
     sigfigs=4
     commands={
@@ -117,52 +114,63 @@ if __name__ == "__main__":
                             'max_age_years': upper_age,
                         }
                     ],
+                    # '2': [ # isochrones go here
+                    #     {
+                    #         'path_to_iso':'MIST_v1.2_vvcrit0.0_UBVRIplus',
+                    #         '[Fe/H]':'-0.25',
+                    #         'min_age_years':6.4e6,
+                    #         'max_age_years':7.9e6,
+                    #         'label':'iso curve'
+                    #     }
+                    # ],
                     '3': { # spectroscopic and photometric points go here
-                       'pp': [
+                        'pp': [
                             {
-                                'temperature_kelvin':8350,
-                                'temperature_kelvin_err':0,
-                                'luminosity_solar_lum':13.06,
-                                'luminosity_solar_lum_err':1.80,
-                                'name':'Moor et al. (2025)'
+                                'temperature_kelvin':8950,
+                                'temperature_kelvin_err':6,
+                                'luminosity_solar_lum':16.48,
+                                'luminosity_solar_lum_err':0.10,
+                                'name':'Cataldi et al. (2023)'
                             },
                             # {
-                            #     'temperature_kelvin':9590,
-                            #     'temperature_kelvin_err':27,
-                            #     'luminosity_solar_lum':18.6,
-                            #     'luminosity_solar_lum_err':0.2,
-                            #     'name':'Kuchner et al. (2016)'
+                            #     'temperature_kelvin':9120,
+                            #     'temperature_kelvin_err':0,
+                            #     'luminosity_solar_lum':17.2,
+                            #     'luminosity_solar_lum_err':0,
+                            #     'name':'Gaia Collaboration et al. (2023)'
                             # },
-                       ],
+                            {
+                                'temperature_kelvin':10274,
+                                'temperature_kelvin_err':617,
+                                'luminosity_solar_lum':29.,
+                                'luminosity_solar_lum_err':7,
+                                'name':'Zhang et al. (2023)'
+                            },
+                        ],
                     },
                     '4': { # lines of constant temperature and luminosity go here
                         # 'temperature_lines':[
                         #     {
-                        #         'min_temp_kelvin':8700-210,
-                        #         'max_temp_kelvin':8700+210,
-                        #         'label':'Brennan et al. (2024)'
+                        #         'min_temp_kelvin':3500,
+                        #         'max_temp_kelvin':3700,
+                        #         'label':'Temp range 1'
                         #     },
-                            # {
-                            #     'min_temp_kelvin':10174-524,
-                            #     'max_temp_kelvin':10174+524,
-                            #     'label':'Cataldi et al. (2023)'
-                            # }
+                        #     {
+                        #         'min_temp_kelvin':3800,
+                        #         'max_temp_kelvin':4000,
+                        #         'label':'Temp range 2'
+                        #     }
                         # ],
                         # 'luminosity_lines':[
                         #     {
-                        #         'min_lum_solar_lum':10.352-0.015,
-                        #         'max_lum_solar_lum':10.352+0.015,
-                        #         'label':'Cataldi et al. (2023a)'
+                        #         'min_lum_solar_lum':15,
+                        #         'max_lum_solar_lum':17,
+                        #         'label':'Lum range 1'
                         #     },
                         #     {
-                        #         'min_lum_solar_lum':17.0,
-                        #         'max_lum_solar_lum':17.3,
-                        #         'label':'Matra et al. (2018)'
-                        #     },
-                        #     {
-                        #         'min_lum_solar_lum':23.73,
-                        #         'max_lum_solar_lum':23.81,
-                        #         'label':'Cataldi et al. (2023a)'
+                        #         'min_lum_solar_lum':18,
+                        #         'max_lum_solar_lum':20,
+                        #         'label':'Lum range 2'
                         #     }
                         # ]
                     },
@@ -170,3 +178,99 @@ if __name__ == "__main__":
                 }
     # testing interactive
     run(interactive=False, commands=commands, color_map=color_map)
+
+# if __name__ == "__main__":
+#     # TODO: update interactive mode so that it can highlight regions of constant temp and lum
+#     # run(interactive=True, commands={})
+#     # all evolutionary tracks should be placed in the hrplot/ directory. Each file should be unzipped/untarred
+#     star_name = 'HD 156623'
+#     lower_mass = 10**(0.248-0.023)
+#     upper_mass = 10**(0.248+0.023)
+#     lower_age = 10e6
+#     upper_age = 23e6
+
+#     sigfigs=4
+#     commands={
+#                     '1': [ # the dynamical mass outputs go here
+#                         {   'source': 'PARSEC1.2S', # read doc to select corresponding metallicity (close to Z=0.0)
+#                             'path_to_untarred_ET':'all_tracks_Pv1.2s/Z0.0001Y0.249',
+#                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
+#                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
+#                             'min_age_years': lower_age,
+#                             'max_age_years': upper_age,
+#                         },
+#                         {   'source': 'Feiden Non-Magnetic', # only available metallicity (close to Z=0.0)
+#                             'path_to_untarred_ET':'all_GS98_p000_p0_y28_mlt1.884 - Feiden Non-Magnetic',
+#                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
+#                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
+#                             'min_age_years': lower_age,
+#                             'max_age_years': upper_age,
+#                         },
+#                         {   'source': 'Feiden Magnetic', # only available metallicity (close to Z=0.0)
+#                             'path_to_untarred_ET':'all__GS98_p000_p0_y28_mlt1.884_Beq - Feiden Magnetic',
+#                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
+#                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
+#                             'min_age_years': lower_age,
+#                             'max_age_years': upper_age,
+#                         },
+#                         {   'source': 'MIST', # (close to Z=0.0)
+#                             'path_to_untarred_ET':'MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS',
+#                             'lower_bound_dynamical_mass_solar_mass': lower_mass,
+#                             'upper_bound_dynamical_mass_solar_mass': upper_mass,
+#                             'min_age_years': lower_age,
+#                             'max_age_years': upper_age,
+#                         }
+#                     ],
+#                     '3': { # spectroscopic and photometric points go here
+#                        'pp': [
+#                             {
+#                                 'temperature_kelvin':8350,
+#                                 'temperature_kelvin_err':0,
+#                                 'luminosity_solar_lum':13.06,
+#                                 'luminosity_solar_lum_err':1.80,
+#                                 'name':'Moor et al. (2025)'
+#                             },
+#                             # {
+#                             #     'temperature_kelvin':9590,
+#                             #     'temperature_kelvin_err':27,
+#                             #     'luminosity_solar_lum':18.6,
+#                             #     'luminosity_solar_lum_err':0.2,
+#                             #     'name':'Kuchner et al. (2016)'
+#                             # },
+#                        ],
+#                     },
+#                     '4': { # lines of constant temperature and luminosity go here
+#                         # 'temperature_lines':[
+#                         #     {
+#                         #         'min_temp_kelvin':8700-210,
+#                         #         'max_temp_kelvin':8700+210,
+#                         #         'label':'Brennan et al. (2024)'
+#                         #     },
+#                             # {
+#                             #     'min_temp_kelvin':10174-524,
+#                             #     'max_temp_kelvin':10174+524,
+#                             #     'label':'Cataldi et al. (2023)'
+#                             # }
+#                         # ],
+#                         # 'luminosity_lines':[
+#                         #     {
+#                         #         'min_lum_solar_lum':10.352-0.015,
+#                         #         'max_lum_solar_lum':10.352+0.015,
+#                         #         'label':'Cataldi et al. (2023a)'
+#                         #     },
+#                         #     {
+#                         #         'min_lum_solar_lum':17.0,
+#                         #         'max_lum_solar_lum':17.3,
+#                         #         'label':'Matra et al. (2018)'
+#                         #     },
+#                         #     {
+#                         #         'min_lum_solar_lum':23.73,
+#                         #         'max_lum_solar_lum':23.81,
+#                         #         'label':'Cataldi et al. (2023a)'
+#                         #     }
+#                         # ]
+#                     },
+#                 'title': f'{star_name}: [{lower_mass:.{sigfigs}f}-{upper_mass:.{sigfigs}f}] ' + r'$M_{\odot}$'
+#                 }
+#     # testing interactive
+#     run(interactive=False, commands=commands, color_map=color_map)
