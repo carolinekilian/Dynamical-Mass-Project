@@ -221,6 +221,8 @@ class InterpolatorTools:
         """Find segments where the age is monotonically increasing or decreasing."""
         segments = []
         start_idx = 0
+        # ensures that age array has at least a 1e-6 difference between neighboring elements
+        # and that age array is strictly increasing (which I hope is true by default)
         age = InterpolatorTools.make_strictly_monotonic(age, increasing=True, eps=1e-6)
         # Determine sign of derivative
         dT = np.diff(age)
@@ -230,7 +232,7 @@ class InterpolatorTools:
            
             if sign_now != sign_prev:
                 print()
-                print("AGE NOT MONOTIC. DEBUG ")
+                print("SEVERE WARNING: Age not monotonic debug.") 
                 print()
                 segments.append(slice(start_idx, i + 1))
                 start_idx = i
@@ -420,7 +422,7 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
         
     else: # need to interpolate for mass 
         print(f"WARNING: File not found, generating interpolated evolutionary track for the selected stellar mass.")
-        # get the stellar mass files that upper bound and lower bound the user's selected mass choice 
+        # get the stellar mass files that upper bound and lower bound (i.e neighbor) the user's selected mass choice 
         i=0
         while i < len(file_ints_str) and file_ints_str[i] < padded_mass_choice:
             i+=1
@@ -430,7 +432,14 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
         else: 
             i-=1 
         # TODO: should generalize code so that tells user "mass is out of range of dataset" 
-        temp_arr,lum_arr,age_arr= interpolate_between_tracks(padded_mass_choice, lower_bound_padded=file_ints_str[i], upper_bound_padded=file_ints_str[i+1], directory=directory, source=source, sample_file=sample_file)
+        temp_arr,lum_arr,age_arr= interpolate_between_tracks(
+            padded_mass_choice,
+            lower_bound_padded=file_ints_str[i],
+            upper_bound_padded=file_ints_str[i+1],
+            directory=directory,
+            source=source,
+            sample_file=sample_file
+            )
 
     # only use the lower mass data to set the age range as they live longer than high mass stars
     if np.sum(age_constraints) == 0: 
@@ -450,7 +459,7 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
                                     command=command,
                                     var_type='max_age_years'
                                     )
-    elif len(age_constraints) == 2: 
+    elif age_constraints[0] != 0 or age_constraints[1] != 0: 
         user_age_min=age_constraints[0]
         user_age_max=age_constraints[-1]
         
@@ -464,6 +473,9 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     print()
     
     # fit a cubic spline to the extracted/interpolated data 
+    # you might be asking why?: up until now we have a track for our dynamical mass that was generated assuming a 
+    # linear step size between neighboring mass files (see lines 408-411). The lines below allow us to build a function for 
+    # the dynamical mass track allowing us to query it with infinite precision in age
     bounds_temp, temp_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_temp_arr, method='akima')
     bounds_lum, lum_interpolator = InterpolatorTools.make_piecewise_interpolator(original_age_arr, original_lum_arr, method='akima')
 
@@ -471,6 +483,13 @@ def get_track_data(padded_mass_choice, file_ints_str, directory, age_constraints
     user_age_arr = np.linspace(user_age_min, user_age_max, num=1_000)
     temp_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_temp, temp_interpolator)
     lum_arr = InterpolatorTools.piecewise_eval(user_age_arr, bounds_lum, lum_interpolator)
+
+    if min(age_arr) > user_age_min:
+        print(f"\n SEVERE WARNING: min_age_years ({user_age_min}) out of bounds (i.e < minimum available age). \n")
+    if max(age_arr) < user_age_max:
+        print(f"\n SEVERE WARNING: max_age_years ({user_age_max}) out of bounds (i.e > maximum available age). \n")
+    if np.isnan(temp_arr).all() or np.isnan(lum_arr).all():
+        print(f"\n SEVERE WARNING: nan in temp/lum arrays. \n")
 
     print(f"2. Age range ({source}): ", min(user_age_arr), max(user_age_arr))
     print(f"2. Temperature range ({source}): ", min(temp_arr), max(temp_arr))
@@ -520,10 +539,23 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
         var_type='upper_bound_dynamical_mass_solar_mass'
     )
     
-    padded_min_interp_dec=min_interp_dec
-    padded_max_interp_dec=max_interp_dec
-    min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(padded_min_interp_dec,file_ints_str,directory,age_constraints=[0,0], command=command, sample_file=only_data_files[0])
-    max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(padded_max_interp_dec,file_ints_str,directory,age_constraints=[user_age_min, user_age_max], command=command, sample_file=only_data_files[0])
+    # interpolation happens here 
+    min_temp_arr, min_lum_arr, min_age_arr, user_age_min, user_age_max=get_track_data(
+        min_interp_dec, #lower bound dynamical mass
+        file_ints_str, # list of mass files (just the masses)
+        directory, #directory where mass files are 
+        age_constraints=[0,0], 
+        command=command, 
+        sample_file=only_data_files[0] # needed to get file naming conventions
+        )
+    max_temp_arr, max_lum_arr, max_age_arr,  _ , _ =get_track_data(
+        max_interp_dec, # upper bound dynamical mass
+        file_ints_str,
+        directory,
+        age_constraints=[user_age_min, user_age_max],
+        command=command,
+        sample_file=only_data_files[0]
+        )
     
     lower_bound_label = f" {source}"
     ax.plot(min_temp_arr, min_lum_arr, lw=5, color=color_map[command['source']],label=lower_bound_label)
@@ -535,7 +567,7 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     
     for i, age in enumerate(min_age_arr):
         
-        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], '--', alpha=0.8, color=color_map[command['source']], lw=5)
+        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], linestyle=linestyle, alpha=0.8, color=color_map[command['source']], lw=5)
         # highlight every 700,000 years
         if age - previous_age >= 700_000 and i - previous_idx >= 3:
             #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
@@ -543,82 +575,3 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
             previous_age = age
             previous_idx = i
     return fig, ax
-
-# TODO -- make this interpolate ... though i think this will be removed now that we're using the akima interpolator
-def plot_iso(fig, ax, interactive, command={}, linestyle='-', debug=False):
-    print("Isocrhone: same age, different masses ")
-    if interactive:
-        path=input("Input name of untarred isochrone file: ")
-    else:
-        path=command['path_to_iso']
-
-    vcritval_start_idx=path.rfind('vvcrit')+len('vvcrit')
-    vcritval=path[vcritval_start_idx:vcritval_start_idx+3]
-    print(vcritval)
-
-    if interactive:
-        print()
-        print("[Fe/H] = -4.00 \t [Fe/H] = -3.50 \t [Fe/H] = -3.00")
-        print("[Fe/H] = -2.50 \t [Fe/H] = -2.00 \t [Fe/H] = -1.75")
-        print("[Fe/H] = -1.50 \t [Fe/H] = -1.25 \t [Fe/H] = -1.00")
-        print("[Fe/H] = -0.75 \t [Fe/H] = -0.50 \t [Fe/H] = -0.25")
-        print("[Fe/H] = +0.00 \t [Fe/H] = +0.25 \t [Fe/H] = +0.50")
-        prompt="Choose [Fe/H]: "
-        user_metallicity = int(input(prompt))
-        valid = {
-            '-4.00',
-            '-3.50',
-            '-3.00',
-            '-2.50',
-            '-2.00',
-            '-1.75',
-            '-1.50',
-            '-1.25',
-            '-1.00',
-            '-0.75',
-            '-0.50',
-            '-0.25',
-            '+0.00',
-            '+0.25',
-            '+0.50',
-            }
-
-        while user_metallicity not in valid:
-            print(f"Invalid choice. ")
-            user_metallicity = int(input(prompt))
-    else:
-        user_metallicity=command['[Fe/H]']
-
-    prefix='p' if user_metallicity[0]=='+' else 'm'
-    user_selected_file=f"{path}/MIST_v1.2_feh_{prefix}{user_metallicity[1:]}_afe_p0.0_vvcrit{vcritval}_UBVRIplus.iso.cmd"
-    print(f"Selected file: {user_selected_file}")
-    
-    data = ascii.read(user_selected_file)
-    logL = np.array(data['col7']) # log(L) [L_sun]?
-    logTEFF = np.array(data['col5']) # log(T_EFF) [K]?
-    MASS = np.array(data['col3']) # initil mass [M_sun]?
-    logAGE = np.array(data['col2']) # log10(ISOCHRONE AGE) [years]
-    AGE_yrs=10**logAGE
-
-    min_age=min(AGE_yrs)
-    max_age=max(AGE_yrs)
-    user_age_min = ValidationTools.validate_input(
-                                min_age,
-                                max_age,
-                                f"Enter minimum age for isochrone (between {min_age} and {max_age} [years]): ",
-                                command=command,
-                                var_type='min_age_years'
-                                )
-
-    user_age_max = ValidationTools.validate_input(
-                                user_age_min,
-                                max_age,
-                                f"Enter maximum age for isochrone (between {user_age_min} and {max_age} [years]): ",
-                                command=command,
-                                var_type='max_age_years'
-                                )   
-    
-    mask = np.where((AGE_yrs>user_age_min)&(AGE_yrs<user_age_max))
-    label=label = input("Input label for isochrone curve: ") if interactive else command['label']
-    ax.plot(logTEFF[mask], logL[mask], color = 'red', linestyle = linestyle, label=label)
-    return fig, ax    
