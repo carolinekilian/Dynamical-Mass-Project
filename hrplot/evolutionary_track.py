@@ -559,8 +559,8 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     
     track_label = command.get('label', f" {source}")
     track_color = command.get('color', color_map[command['source']])
-    ax.plot(min_temp_arr, min_lum_arr, lw=20, color=track_color, label=track_label)
-    ax.plot(max_temp_arr, max_lum_arr, lw=20, color=track_color)
+    ax.plot(min_temp_arr, min_lum_arr, lw=5, color=track_color, label=track_label)
+    ax.plot(max_temp_arr, max_lum_arr, lw=5, color=track_color)
     
     # Draw equal-age connecting lines
     previous_age = min_age_arr[0]
@@ -568,7 +568,7 @@ def plot_eep(fig, ax, interactive, color_map, command={}, source='MIST', linesty
     
     for i, age in enumerate(min_age_arr):
         
-        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], linestyle=linestyle, alpha=1, color=track_color, lw=20)
+        plt.plot([min_temp_arr[i], max_temp_arr[i]], [min_lum_arr[i], max_lum_arr[i]], linestyle=linestyle, alpha=1, color=track_color, lw=5)
         # highlight every 700,000 years
         if age - previous_age >= 700_000 and i - previous_idx >= 3:
             #ax.text((T1_new[i]+T2_new[i])/2, (L1_new[i]+L2_new[i])/2, f"{common_age_grid[i]:.1e} years", fontsize=8, color='black', rotation=45)
